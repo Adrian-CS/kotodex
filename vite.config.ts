@@ -3,6 +3,18 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  server: {
+    watch: {
+      // server/data guarda la colección de Anki y ~200.000 ficheros de media: nada que vigilar.
+      ignored: ["**/server/**", "**/test-dicts/**"],
+    },
+  },
+  optimizeDeps: {
+    // Sin esto, Vite busca los puntos de entrada con un glob **/*.html por todo el proyecto, que
+    // ahora incluye los ~200.000 ficheros de server/data/collection.media: `npm run dev` se queda
+    // colgado en "scanning dependencies". Solo hay un HTML, así que se lo decimos.
+    entries: ["index.html"],
+  },
   plugins: [
     react(),
     VitePWA({

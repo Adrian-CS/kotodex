@@ -14,6 +14,7 @@ la app y no depende de la longitud de la URL.
 | GET | `/decks` | Mazos de la colección. |
 | POST | `/notetype/ensure` | Crea el tipo de nota «JP Dict» o refresca plantillas y CSS. |
 | POST | `/notes` | Crea una nota. Busca el audio si hay pack configurado. |
+| POST | `/notes/check` | Cuántas notas hay ya con cada palabra, en cualquier tipo de nota. |
 | POST | `/sync` | Sincroniza con AnkiWeb. |
 
 Todos menos `/health` piden `Authorization: Bearer $KOTODEX_TOKEN`.
@@ -208,6 +209,16 @@ responda bien.
   añadir un campo a un tipo de nota existente **sí** cambia el esquema, por eso `/notetype/ensure`
   no lo hace sin `{"force": true}`. Crear un tipo de nota nuevo, cambiar plantillas o CSS, y crear
   mazos **no**. Así que recrear «JP Dict» después de la descarga inicial es seguro.
+
+## Comprobar duplicados
+
+`POST /notes/check` recibe hasta 50 palabras y devuelve cuántas notas hay ya con cada una. La PWA
+lo llama después de cada búsqueda y marca las que ya tienes.
+
+La búsqueda que usa es `*:palabra` (algún campo es exactamente eso) y no `palabra` a secas. La
+diferencia importa en una colección con frases minadas: sobre 51.000 notas, 食べる aparece en 74
+buscando el texto suelto y en 2 con `*:`. Lo segundo es lo que interesa. Cada palabra es una
+consulta de unos 60 ms, así que la PWA lo hace en paralelo a enseñar los resultados.
 
 ## Sincronización automática y avisos
 

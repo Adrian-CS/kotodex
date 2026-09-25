@@ -84,6 +84,7 @@ svg.pitch text { fill: var(--ink); font-size: 15px; text-anchor: middle; }
 .entry-actions { display: flex; gap: 8px; margin-top: 20px; }
 .entry-actions select { flex: 1; min-width: 0; }
 .added-note { margin: 8px 0 0; font-size: 13px; color: var(--muted); text-align: right; }
+.dup-note { margin: 16px 0 0; font-size: 13px; color: var(--accent); }
 
 /* Controles */
 select, .inline-form input, .field input {
@@ -120,3 +121,19 @@ button.text { border: 0; background: none; padding: 0 8px; height: 36px; }
 .field span { display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
 .field input, .field select { width: 100%; }
 .button-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+
+/* Historial */
+.history-list { list-style: none; padding: 0; margin: 12px 0; }
+.history-item {
+  display: flex; align-items: baseline; gap: 8px; width: 100%; height: auto;
+  padding: 12px 4px; border: 0; border-top: 1px solid var(--rule); border-radius: 0;
+  background: none; text-align: left;
+}
+.history-word { font-family: var(--mincho); font-size: 22px; }
+.history-reading { color: var(--muted); font-size: 13px; }
+.history-query { color: var(--muted); font-size: 12px; }
+.history-when { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.history-added {
+  font-size: 11px; color: var(--accent); border: 1px solid var(--accent);
+  border-radius: 6px; padding: 1px 5px; white-space: nowrap;
+}

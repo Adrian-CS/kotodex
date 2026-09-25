@@ -19,9 +19,15 @@ type Status =
   | { kind: "done"; text: string }
   | { kind: "error"; message: string; duplicate: boolean };
 
-interface Props { entry: Entry; settings: Settings; setSettings: (s: Settings) => void }
+interface Props {
+  entry: Entry;
+  settings: Settings;
+  setSettings: (s: Settings) => void;
+  /** Notas que ya hay en la colección con esta palabra. undefined = todavía sin comprobar. */
+  inCollection?: number;
+}
 
-export function EntryCard({ entry, settings, setSettings }: Props) {
+export function EntryCard({ entry, settings, setSettings, inCollection }: Props) {
   const key = entryKey(entry.expression, entry.reading);
   const added = useLiveQuery(() => db.added.get(key), [key]);
   const deck = settings.decks.includes(settings.lastDeck) ? settings.lastDeck : settings.decks[0] ?? "";
@@ -82,6 +88,12 @@ export function EntryCard({ entry, settings, setSettings }: Props) {
           ))}
         </section>
       ))}
+
+      {inCollection !== undefined && inCollection > 0 && (
+        <p className="dup-note">
+          Ya en tu colección: {inCollection} {inCollection === 1 ? "nota" : "notas"}
+        </p>
+      )}
 
       <footer className="entry-actions">
         <select

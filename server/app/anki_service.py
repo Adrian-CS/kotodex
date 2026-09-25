@@ -35,6 +35,13 @@ _CHANGES = SyncCollectionResponse.ChangesRequired
 _FULL = {_CHANGES.FULL_SYNC, _CHANGES.FULL_DOWNLOAD, _CHANGES.FULL_UPLOAD}
 
 
+def _escapar(texto: str) -> str:
+    """Deja el texto listo para meterlo entre comillas en una búsqueda de Anki."""
+    for caracter in ("\\", '"', "*", "_", ":"):
+        texto = texto.replace(caracter, "\\" + caracter)
+    return texto
+
+
 class ServiceError(RuntimeError):
     """Error con un mensaje pensado para que lo lea Adrian en la PWA."""
 
@@ -244,6 +251,32 @@ class AnkiService:
             find_audio(s.audio_dirs, s.audio_patterns or DEFAULT_PATTERNS, expression, reading)
             or fetch_audio(s.audio_urls, s.audio_cache, expression, reading, s.audio_timeout)
         )
+
+    # ---- duplicados ----------------------------------------------------
+
+    def check_notes(self, pares: list[tuple[str, str]]) -> list[int]:
+        """
+        Cuántas notas de la colección tienen ya esa palabra, mirando TODOS los tipos de nota.
+
+        Se usa la búsqueda `*:palabra` (algún campo es exactamente eso) y no `palabra` a secas:
+        buscando el texto suelto, 食べる aparece en 74 notas de una colección con frases minadas,
+        y eso no es un duplicado. Con `*:` son 2, que es lo que interesa saber.
+        """
+        with self._lock:
+            salida: list[int] = []
+            for expression, reading in pares:
+                # dict.fromkeys quita repetidos manteniendo el orden (palabra en kana = lectura).
+                terminos = [t for t in dict.fromkeys([expression.strip(), reading.strip()]) if t]
+                if not terminos:
+                    salida.append(0)
+                    continue
+                consulta = " OR ".join(f'"*:{_escapar(t)}"' for t in terminos)
+                try:
+                    salida.append(len(self.col.find_notes(consulta)))
+                except Exception:
+                    # Una palabra rara no puede tumbar la comprobación de las demás.
+                    salida.append(0)
+            return salida
 
     # ---- sincronización ------------------------------------------------
 

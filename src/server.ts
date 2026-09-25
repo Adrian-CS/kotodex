@@ -85,6 +85,12 @@ export const ensureNotetype = (s: Settings) =>
 
 export const sync = (s: Settings) => call<SyncResult>(s, "/sync", { wait_media: true });
 
+export interface WordCheck { expression: string; reading: string; notes: number }
+
+/** Cuántas notas hay ya en la colección con cada palabra (cualquier tipo de nota). */
+export const checkNotes = (s: Settings, words: { expression: string; reading: string }[]) =>
+  call<{ results: WordCheck[] }>(s, "/notes/check", { words });
+
 export function addNote(
   s: Settings,
   fields: NoteFields,

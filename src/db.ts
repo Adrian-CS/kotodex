@@ -10,6 +10,8 @@ export interface Dictionary {
   role: Role;
   terms: number;
   metas: number;
+  /** Cuántas entradas de pitch trae. Falta en lo importado antes de contarlo. */
+  pitches?: number;
   importedAt: number;
   enabled: boolean;
 }
@@ -43,11 +45,26 @@ export interface Added {
   at: number;
 }
 
+/**
+ * Una palabra consultada. La clave es la palabra a la que se llegó, no lo que se tecleó: buscar
+ * 食べた y 食べる tiene que dejar una sola entrada, no dos.
+ */
+export interface Lookup {
+  key: string;          // entryKey(expression, reading)
+  expression: string;
+  reading: string;
+  /** Lo último que se escribió para llegar aquí. */
+  query: string;
+  at: number;
+  hits: number;
+}
+
 class JpDictDB extends Dexie {
   dictionaries!: Table<Dictionary, number>;
   terms!: Table<Term, number>;
   metas!: Table<TermMeta, number>;
   added!: Table<Added, string>;
+  lookups!: Table<Lookup, string>;
 
   constructor() {
     super("jp-dict");
@@ -56,6 +73,17 @@ class JpDictDB extends Dexie {
       terms: "++id, dict, expression, reading",
       metas: "++id, dict, expression",
       added: "&key",
+    });
+    // v2 añadió el historial. Los campos nuevos de Dictionary y Term no van indexados,
+    // así que no hacen falta migraciones: quedan undefined en lo ya importado.
+    this.version(2).stores({
+      searches: "&query, at",
+    });
+    // v3 lo reindexa por palabra en vez de por consulta. Cambiar la clave primaria obliga a
+    // recrear la tabla, así que se borra la vieja: el historial previo se pierde y no pasa nada.
+    this.version(3).stores({
+      searches: null,
+      lookups: "&key, at",
     });
   }
 }

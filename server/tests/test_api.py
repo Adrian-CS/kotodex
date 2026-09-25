@@ -113,3 +113,24 @@ def test_sync_sin_credenciales_avisa(client):
 
 def test_token_correcto_es_el_del_entorno():
     assert len(TOKEN) >= 16
+
+
+def test_check_detecta_lo_que_ya_esta(client):
+    r = client.post("/notes/check", json={"words": [
+        {"expression": "食べる", "reading": "たべる"},
+        {"expression": "存在しない語", "reading": "そんざいしないご"},
+    ]})
+    assert r.status_code == 200
+    resultados = r.json()["results"]
+    assert resultados[0]["notes"] >= 1, "食べる se añadió antes en estos tests"
+    assert resultados[1]["notes"] == 0
+
+
+def test_check_texto_raro_no_rompe(client):
+    r = client.post("/notes/check", json={"words": [{"expression": 'a"*_:\\b', "reading": ""}]})
+    assert r.status_code == 200
+    assert r.json()["results"][0]["notes"] == 0
+
+
+def test_check_sin_palabras(client):
+    assert client.post("/notes/check", json={"words": []}).json()["results"] == []

@@ -217,5 +217,7 @@ Copy-Item C:\dev\kotodex\server\data -Destination "C:\backups\kotodex-$(Get-Date
 | `/sync` devuelve 409 | O faltan credenciales de AnkiWeb, o AnkiWeb pide sincronización completa: resuélvela en el ordenador o en AnkiMobile. |
 | No llega el aviso del sync | Mira `kotodex.err.log`: si dice «hay un aviso pero no hay forma de mandarlo», falta configurar SMTP o el webhook. El mismo aviso no se repite hasta pasadas 12 h. |
 | El servidor no arranca | `Get-Content server\data\kotodex.err.log -Tail 30`. Si dice que no puede abrir la colección, hay otro proceso con ella abierta. |
+| `npm run dev` se queda colgado en "scanning dependencies" | Falta `optimizeDeps.entries` en vite.config.ts: Vite intenta recorrer los ~200.000 ficheros de `server/data`. |
+| El puerto 5173 responde pero no carga | Ha quedado un Vite zombi. `Get-NetTCPConnection -State Listen -LocalPort 5173 \| ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }` |
 | `'X' は認識されていません` | Estás en cmd en vez de PowerShell, o falta refrescar el PATH. |
 | iOS ha borrado los diccionarios | Pasa si la PWA no se usa desde el icono de la pantalla de inicio. Reimportar los .zip desde Archivos. |

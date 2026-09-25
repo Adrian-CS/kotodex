@@ -84,6 +84,16 @@ class NoteRequest(BaseModel):
     with_audio: bool = True
 
 
+class WordRef(BaseModel):
+    expression: str
+    reading: str = ""
+
+
+class CheckRequest(BaseModel):
+    # Tope por petición: cada palabra es una búsqueda en la colección (~60 ms).
+    words: list[WordRef] = Field(default_factory=list, max_length=50)
+
+
 class SyncRequest(BaseModel):
     wait_media: bool = True
     media_timeout: float = Field(default=120.0, ge=0, le=600)
@@ -131,6 +141,19 @@ async def add_note(body: NoteRequest) -> dict:
         create_deck=body.create_deck,
         with_audio=body.with_audio,
     )
+
+
+@app.post("/notes/check", dependencies=[Auth])
+async def check_notes(body: CheckRequest) -> dict:
+    """Cuántas notas hay ya con cada palabra, en cualquier tipo de nota de la colección."""
+    pares = [(w.expression, w.reading) for w in body.words]
+    conteos = await run_in_threadpool(service.check_notes, pares)
+    return {
+        "results": [
+            {"expression": w.expression, "reading": w.reading, "notes": n}
+            for w, n in zip(body.words, conteos)
+        ]
+    }
 
 
 @app.post("/sync", dependencies=[Auth])

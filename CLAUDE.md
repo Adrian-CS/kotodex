@@ -51,7 +51,9 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
 
 ## Mapa del código
 - `src/db.ts` — esquema Dexie v1: `dictionaries(++id,&title)`, `terms(++id,dict,expression,reading)`,
-  `metas(++id,dict,expression)`, `added(&key)`. Roles: `ja|es|en|pitch|other` (other = ignorado).
+  `metas(++id,dict,expression)`, `added(&key)`; v3: `lookups(&key,at)` (historial).
+  Roles: `ja|es|en|pitch|other` (other = ignorado). El pitch se lee de CUALQUIER diccionario activo que lo
+  traiga, no solo de los de rol "pitch": hay diccionarios con términos y pitch a la vez y el rol es uno solo.
   `Term.rules` (clases de palabra) no está indexado y es opcional: falta en lo importado antes del deinflector.
 - `src/importer.ts` — unzip (solo .json), term_bank / term_meta_bank en orden numérico, `bulkAdd` por archivo,
   adivina el rol por título, rollback si falla, pide `navigator.storage.persist()`.
@@ -65,6 +67,9 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   term_bank; si el diccionario no lo trae (monolingües), acepta. `suruStem()` cubre 勉強しました → 勉強 (rules `vs`).
 - `src/pitch.ts` — moras (kana pequeños se unen; っ ん ー cuentan), patrón H/L + partícula, SVG. Probado 平板/頭高/中高/尾高.
 - `src/anki.ts` — `buildFields(entry)` y `ankiMobileUrl()`. Ojo: se reemplaza `+`→`%20` (un `+` real ya va como `%2B`).
+- `src/history.ts` + `components/HistoryView.tsx` — historial indexado por la palabra a la que se llega, no por
+  lo tecleado: buscar 食べた y 食べる deja una entrada. Si la consulta nueva empieza por la anterior y han pasado
+  menos de 2 min, sustituye a la anterior (escribir 食べる no deja 食, 食べ y 食べる).
 - `src/settings.ts` — mazos, último mazo, tipo de nota, perfil, etiquetas, modo (`ankimobile`|`server`),
   URL y token del servidor (localStorage, PWA propia).
 - `src/server.ts` — cliente del servidor: health, decks, notetype/ensure, notes, sync. Los errores de la API se
@@ -110,6 +115,9 @@ junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173
 - JMdict completo ≈ 200k términos: la importación va en el hilo principal → si se nota lenta, moverla a Web Worker.
 - AnkiMobile necesita que el tipo de nota y el mazo existan con el nombre exacto.
 - Longitud de URL: las defs largas inflan la URL del scheme; el servidor lo resuelve.
+- `server/data/collection.media` tiene ~200.000 ficheros DENTRO del proyecto. Sin `optimizeDeps.entries` en
+  vite.config.ts, `npm run dev` se cuelga en "scanning dependencies" porque Vite busca los puntos de entrada
+  con un glob `**/*.html` por todo el árbol. No quitar esa opción ni el `server.watch.ignored`.
 - El servidor va con UN worker: `anki` abre el SQLite en modo exclusivo. Por lo mismo, no se puede copiar la
   colección desde fuera mientras corre (el proceso se queda colgado); `server/deploy/backup.sh` para el servicio.
 - No poner Cloudflare Access interactivo en el host de la API: tumba el preflight CORS y la PWA deja de funcionar.

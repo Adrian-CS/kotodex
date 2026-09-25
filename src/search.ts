@@ -103,10 +103,14 @@ export async function search(raw: string): Promise<Entry[]> {
     .sort((a, b) => rank(a) - rank(b) || b.score - a.score || a.expression.length - b.expression.length)
     .slice(0, MAX_ENTRIES);
 
-  const pitchDicts = new Set([...dicts.values()].filter(d => d.role === "pitch").map(d => d.id!));
-  const metas = pitchDicts.size
-    ? (await db.metas.where("expression").anyOf([...new Set(sorted.map(g => g.expression))]).toArray())
-        .filter(m => m.mode === "pitch" && pitchDicts.has(m.dict))
+  // El pitch se coge de cualquier diccionario activo que lo traiga, no solo de los marcados con el
+  // rol "pitch": hay diccionarios (NHK, algunos Jitendex) que traen términos y pitch a la vez, y el
+  // rol es uno solo. Se busca por expresión y por lectura, porque no todos indexan igual.
+  const conPitch = new Set([...dicts.values()].filter(d => d.role !== "other").map(d => d.id!));
+  const claves = [...new Set(sorted.flatMap(g => [g.expression, g.reading]))];
+  const metas = conPitch.size
+    ? (await db.metas.where("expression").anyOf(claves).toArray())
+        .filter(m => m.mode === "pitch" && conPitch.has(m.dict))
     : [];
 
   return sorted.map(g => {
@@ -120,10 +124,14 @@ export async function search(raw: string): Promise<Entry[]> {
       if (html) defs[d.role as DefRole].push({ dictTitle: d.title, html });
     }
 
+    const lectura = toHiragana(g.reading);
     const pitches = new Set<number>();
     for (const m of metas) {
-      if (m.expression !== g.expression || m.data?.reading !== g.reading) continue;
-      for (const p of m.data.pitches ?? []) if (typeof p.position === "number") pitches.add(p.position);
+      if (m.expression !== g.expression && m.expression !== g.reading) continue;
+      // Unos guardan la lectura en katakana y otros la omiten cuando la palabra ya es kana.
+      const suya = typeof m.data?.reading === "string" ? toHiragana(m.data.reading) : "";
+      if (suya && suya !== lectura) continue;
+      for (const p of m.data?.pitches ?? []) if (typeof p.position === "number") pitches.add(p.position);
     }
     return { expression: g.expression, reading: g.reading, pitches: [...pitches], defs, inflected: g.inflected };
   });

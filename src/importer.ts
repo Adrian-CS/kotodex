@@ -79,7 +79,7 @@ export async function importDictionary(file: File, onProgress: (p: ImportProgres
   }
 
   const role = guessRole(title, termCount > 0, pitchRows);
-  await db.dictionaries.update(dictId, { terms: termCount, metas: metaCount, role });
+  await db.dictionaries.update(dictId, { terms: termCount, metas: metaCount, pitches: pitchRows, role });
   navigator.storage?.persist?.().catch(() => {});
   onProgress({ stage: "Listo", done: total, total });
   return (await db.dictionaries.get(dictId))!;

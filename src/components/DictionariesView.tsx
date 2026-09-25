@@ -65,9 +65,12 @@ export function DictionariesView() {
           <li key={d.id} className="dict-item">
             <div className="dict-title">{d.title}</div>
             <div className="dict-meta">
-              {d.terms > 0 && `${d.terms.toLocaleString("es")} términos`}
-              {d.terms > 0 && d.metas > 0 && ", "}
-              {d.metas > 0 && `${d.metas.toLocaleString("es")} datos meta`}
+              {[
+                d.terms > 0 && `${d.terms.toLocaleString("es")} términos`,
+                // Saber si un diccionario trae pitch es lo primero que se mira cuando no aparece.
+                d.pitches ? `${d.pitches.toLocaleString("es")} con pitch` : null,
+                d.metas > 0 && `${d.metas.toLocaleString("es")} datos meta`,
+              ].filter(Boolean).join(" · ")}
             </div>
             <div className="dict-controls">
               <select value={d.role} onChange={e => db.dictionaries.update(d.id!, { role: e.target.value as Role })} aria-label={`Uso de ${d.title}`}>
