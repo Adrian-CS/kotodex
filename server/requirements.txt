@@ -1,0 +1,4 @@
+# Versiones con las que está probado. anki trae su propio backend en Rust (wheel, no compila nada).
+anki==26.9.3
+fastapi==0.141.1
+uvicorn[standard]==0.53.0

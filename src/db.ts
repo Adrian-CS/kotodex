@@ -22,6 +22,8 @@ export interface Term {
   reading: string;
   glossary: unknown[];
   tags: string;
+  /** Clases de palabra para el deinflector ("v1", "v5 vt"…). Falta en lo importado antes de tenerlo. */
+  rules?: string;
   score: number;
   sequence: number;
 }

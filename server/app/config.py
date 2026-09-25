@@ -1,0 +1,67 @@
+"""Configuración por variables de entorno. Solo KOTODEX_TOKEN es obligatoria."""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+SERVER_DIR = Path(__file__).resolve().parent.parent   # server/
+REPO_DIR = SERVER_DIR.parent                          # raíz del repo, donde vive notetype/
+
+
+def _env(name: str, default: str = "") -> str:
+    return os.environ.get(name, default).strip()
+
+
+def _paths(name: str) -> tuple[Path, ...]:
+    """Lista de rutas separadas por ; en Windows y : en Linux."""
+    raw = _env(name)
+    return tuple(Path(p).expanduser() for p in raw.split(os.pathsep) if p.strip())
+
+
+class ConfigError(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True)
+class Settings:
+    token: str
+    collection_path: Path
+    notetype_dir: Path
+    default_deck: str
+    audio_dirs: tuple[Path, ...]
+    audio_patterns: tuple[str, ...]
+    ankiweb_username: str
+    ankiweb_password: str
+    ankiweb_endpoint: str | None
+    cors_origins: tuple[str, ...]
+
+    @property
+    def can_sync(self) -> bool:
+        return bool(self.ankiweb_username and self.ankiweb_password)
+
+
+def load_settings() -> Settings:
+    token = _env("KOTODEX_TOKEN")
+    if not token:
+        raise ConfigError(
+            "Falta KOTODEX_TOKEN. Genera uno con `python -c \"import secrets; print(secrets.token_urlsafe(32))\"` "
+            "y ponlo en el .env del servidor y en Ajustes de la PWA."
+        )
+    if len(token) < 16:
+        raise ConfigError("KOTODEX_TOKEN es demasiado corto: usa al menos 16 caracteres.")
+
+    patterns = _env("KOTODEX_AUDIO_PATTERNS")
+    return Settings(
+        token=token,
+        collection_path=Path(_env("KOTODEX_COLLECTION", str(SERVER_DIR / "data" / "collection.anki2"))).expanduser(),
+        notetype_dir=Path(_env("KOTODEX_NOTETYPE_DIR", str(REPO_DIR / "notetype"))).expanduser(),
+        default_deck=_env("KOTODEX_DEFAULT_DECK", "日本語"),
+        audio_dirs=_paths("KOTODEX_AUDIO_DIRS"),
+        audio_patterns=tuple(p.strip() for p in patterns.split("|") if p.strip()),
+        ankiweb_username=_env("ANKIWEB_USERNAME"),
+        ankiweb_password=_env("ANKIWEB_PASSWORD"),
+        ankiweb_endpoint=_env("ANKIWEB_ENDPOINT") or None,
+        cors_origins=tuple(o.strip() for o in _env("KOTODEX_CORS_ORIGINS").split(",") if o.strip()),
+    )

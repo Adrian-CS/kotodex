@@ -1,0 +1,30 @@
+[Unit]
+Description=kotodex — API de Anki para la PWA
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=kotodex
+Group=kotodex
+WorkingDirectory=/opt/kotodex/server
+EnvironmentFile=/opt/kotodex/server/.env
+
+# UN SOLO WORKER: la librería anki bloquea el fichero de la colección.
+# Solo escucha en localhost; quien lo expone es cloudflared.
+ExecStart=/opt/kotodex/server/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+
+Restart=on-failure
+RestartSec=5
+# La colección es SQLite: cerrar limpiamente en vez de matar el proceso.
+KillSignal=SIGINT
+TimeoutStopSec=30
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/kotodex/data
+
+[Install]
+WantedBy=multi-user.target

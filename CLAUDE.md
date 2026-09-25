@@ -13,14 +13,15 @@ PWA (este repo, Cloudflare Pages + Cloudflare Access)
   ├─ Diccionarios Yomitan importados por el usuario → IndexedDB (Dexie). Local-first.
   ├─ Genera los campos de la nota (incluido el SVG de pitch) en el cliente
   └─ Añadir a Anki:
-       modo actual  → URL scheme de AnkiMobile (sin audio, sale de la app)
-       modo futuro  → POST a servidor propio
-Servidor (PENDIENTE, repo/carpeta aparte)
-  FastAPI + librería Python `anki` en VM gratis (Oracle Cloud Always Free; alternativa: Pi en casa + Cloudflare Tunnel)
+       "ankimobile" → URL scheme de AnkiMobile (sin audio, sale de la app)
+       "servidor"   → POST a servidor propio (con audio, sin salir de la app)
+Servidor (server/, HECHO — falta desplegarlo)
+  FastAPI + librería Python `anki`. Se despliega igual en GCP e2-micro, VPS japonés o mini PC en casa.
   ├─ Colección de Anki PERSISTENTE en disco (para sync incremental, no full sync)
   ├─ Crea la nota, adjunta el audio como media ([sound:x.mp3]), sincroniza con AnkiWeb
   └─ Audio desde un pack local tipo Yomitan (JPod101/NHK/Forvo) en disco o R2 privado
 El usuario sincroniza AnkiMobile después. NO usar Workers para el servidor (necesita proceso Python + disco).
+Oracle Cloud descartado: el registro lo rechaza el antifraude.
 ```
 
 ### Decisiones y por qué
@@ -37,18 +38,28 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
 ## Mapa del código
 - `src/db.ts` — esquema Dexie v1: `dictionaries(++id,&title)`, `terms(++id,dict,expression,reading)`,
   `metas(++id,dict,expression)`, `added(&key)`. Roles: `ja|es|en|pitch|other` (other = ignorado).
+  `Term.rules` (clases de palabra) no está indexado y es opcional: falta en lo importado antes del deinflector.
 - `src/importer.ts` — unzip (solo .json), term_bank / term_meta_bank en orden numérico, `bulkAdd` por archivo,
   adivina el rol por título, rollback si falla, pide `navigator.storage.persist()`.
 - `src/structured.ts` — structured-content → HTML con **lista blanca** de etiquetas/estilos; `<a>`→span; imágenes omitidas.
   Escapar SIEMPRE: este HTML acaba en la tarjeta y en `dangerouslySetInnerHTML`.
-- `src/search.ts` — exacta por expresión/lectura (variantes hira/kata) → si no hay, prefijo (limit 200).
-  Agrupa por (expresión, lectura), ordena exacta-expr > exacta-lectura > prefijo, luego score. Máx 20. Pitch desde metas.
+- `src/search.ts` — exacta por expresión/lectura (variantes hira/kata) → si no hay, **deinflexión** → si no, prefijo
+  por expresión (limit 200). Agrupa por (expresión, lectura), ordena exacta-expr > exacta-lectura > prefijo, luego
+  score. Máx 20. Pitch desde metas. La búsqueda por prefijo aún no mira `reading`.
+- `src/deinflect.ts` — tabla de Yomitan (`ext/data/deinflect.json`, 36 razones / 569 reglas) en formato compacto
+  `"sufijo:reemplazo:clasesEntrada:clasesSalida"`, con las razones en español. Filtra por el campo `rules` de
+  term_bank; si el diccionario no lo trae (monolingües), acepta. `suruStem()` cubre 勉強しました → 勉強 (rules `vs`).
 - `src/pitch.ts` — moras (kana pequeños se unen; っ ん ー cuentan), patrón H/L + partícula, SVG. Probado 平板/頭高/中高/尾高.
 - `src/anki.ts` — `buildFields(entry)` y `ankiMobileUrl()`. Ojo: se reemplaza `+`→`%20` (un `+` real ya va como `%2B`).
-- `src/settings.ts` — mazos, último mazo, tipo de nota, perfil, etiquetas (localStorage, PWA propia).
+- `src/settings.ts` — mazos, último mazo, tipo de nota, perfil, etiquetas, modo (`ankimobile`|`server`),
+  URL y token del servidor (localStorage, PWA propia).
+- `src/server.ts` — cliente del servidor: health, decks, notetype/ensure, notes, sync. Los errores de la API se
+  enseñan tal cual en la UI.
+- `server/` — la API. Ver `server/README.md`: endpoints, despliegue y las trampas de la colección de Anki.
 - `src/components/` — SearchView (siempre montado para no perder la búsqueda), EntryCard, DictionariesView, SettingsView.
 - `notetype/` — plantillas del tipo de nota **JP Dict** (front.html, back.html, style.css; soporta `.nightMode`).
 - `scripts/make-test-dicts.py` — diccionarios de prueba en `test-dicts/`.
+- `scripts/test-deinflect.ts` — 33 casos del deinflector (`npm test`, usa `--experimental-strip-types`).
 
 ## Contrato: tipo de nota "JP Dict" (no cambiar orden/nombres sin actualizar anki.ts, notetype/ y servidor)
 1 Expression · 2 Reading · 3 Audio (`[sound:…]`, lo pone el servidor) · 4 Pitch (HTML/SVG) · 5 PitchNum (`0` o `0,2`)
@@ -70,18 +81,29 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
 npm install && python3 scripts/make-test-dicts.py && npm run dev
 ```
 Importar los 4 zips de `test-dicts/`, buscar はし (3 entradas, pitches [2],[1],[0]) y 今日 (dos pitches [1],[0], con ES).
-`npx tsc -p .` debe salir limpio. Para verificar UI móvil: Playwright a 390×844.
+Conjugaciones: 食べた, 食べさせられた, たべている, 読まなかった, 高くない, 勉強しました → todas deben caer en su forma de
+diccionario con la razón debajo del término. `npx tsc -p .` y `npm test` deben salir limpios.
+Para verificar UI móvil: Playwright a 390×844.
+
+Servidor: `cd server && ./venv/bin/python -m pytest tests -q` (13 casos, colección temporal). Para probarlo
+junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173` y poner esa URL en Ajustes.
 
 ## Gotchas
 - iOS: usar desde pantalla de inicio o Safari puede purgar IndexedDB; el usuario guarda los .zip en Archivos.
 - JMdict completo ≈ 200k términos: la importación va en el hilo principal → si se nota lenta, moverla a Web Worker.
 - AnkiMobile necesita que el tipo de nota y el mazo existan con el nombre exacto.
 - Longitud de URL: las defs largas inflan la URL del scheme; el servidor lo resuelve.
+- El servidor va con UN worker: `anki` abre el SQLite en modo exclusivo. Por lo mismo, no se puede copiar la
+  colección desde fuera mientras corre (el proceso se queda colgado); `server/deploy/backup.sh` para el servicio.
+- No poner Cloudflare Access interactivo en el host de la API: tumba el preflight CORS y la PWA deja de funcionar.
+  Autentica el bearer token.
+- Los diccionarios importados antes del deinflector no guardaron `rules`: siguen funcionando, pero sin filtrar por
+  clase de palabra (algún candidato de más). Reimportarlos lo arregla; no hay migración porque reescribir 200k filas
+  en iOS no compensa.
 
 ## Pendiente (por prioridad)
-1. **Deinflector** (食べた→食べる): portar el de Yomitan (reglas + `rules` de term_bank para filtrar por clase).
-2. **Servidor**: FastAPI + `anki`; endpoints `POST /notetype/ensure`, `POST /notes`, `GET /decks`, `POST /sync`.
-   Auth vía Cloudflare Access (service token) o token propio. En la PWA: modo "servidor" en Ajustes + lista de mazos real.
-3. Audio: resolver URL/archivo por (expresión, lectura) desde el pack local; preview de audio en la PWA.
-4. Importación en Web Worker con progreso; imágenes de structured-content (guardar blobs).
-5. Historial / lista de palabras añadidas.
+1. **Desplegar el servidor** (código listo en `server/`): VM + Cloudflare Tunnel, y conseguir un pack de audio.
+2. Preview del audio en la PWA (el servidor ya lo resuelve y lo adjunta).
+3. Importación en Web Worker con progreso; imágenes de structured-content (guardar blobs).
+4. Historial / lista de palabras añadidas.
+5. Búsqueda por prefijo también sobre `reading` (escribir kana parcial no encuentra entradas con kanji).

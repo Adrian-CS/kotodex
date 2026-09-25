@@ -53,7 +53,7 @@ export function SearchView({ settings, setSettings, onOpenDicts }: Props) {
       {error && <p className="error">No se pudo buscar: {error}</p>}
 
       {results && results.length === 0 && dictCount !== 0 && (
-        <p className="empty">Sin resultados para «{query.trim()}». La búsqueda aún no deshace conjugaciones: prueba con la forma de diccionario.</p>
+        <p className="empty">Sin resultados para «{query.trim()}». Prueba con la forma de diccionario o revisa qué diccionarios tienes activos.</p>
       )}
 
       {results?.map(e => (

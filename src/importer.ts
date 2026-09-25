@@ -54,6 +54,7 @@ export async function importDictionary(file: File, onProgress: (p: ImportProgres
         expression: r[0],
         reading: r[1] || r[0],
         tags: r[2] ?? "",
+        rules: r[3] ?? "",
         score: Number(r[4]) || 0,
         glossary: r[5] ?? [],
         sequence: Number(r[6]) || 0,

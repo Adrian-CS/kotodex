@@ -1,0 +1,16 @@
+# Ejemplo de /etc/cloudflared/config.yml
+#
+# El túnel sale desde la máquina hacia Cloudflare, así que no hace falta abrir puertos
+# ni tener IP pública entrante. Crear el túnel con:
+#   cloudflared tunnel login
+#   cloudflared tunnel create kotodex
+#   cloudflared tunnel route dns kotodex anki.tudominio.com
+#   sudo cloudflared service install
+
+tunnel: kotodex
+credentials-file: /etc/cloudflared/kotodex.json
+
+ingress:
+  - hostname: anki.tudominio.com
+    service: http://127.0.0.1:8000
+  - service: http_status:404

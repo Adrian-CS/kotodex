@@ -57,6 +57,7 @@ button, input, select { font: inherit; color: inherit; }
 /* Entrada del diccionario */
 .entry { padding: 20px 0 24px; border-bottom: 1px solid var(--rule); }
 .entry-head { text-align: center; }
+.entry-inflected { margin: 0 0 2px; font-size: 13px; color: var(--muted); }
 .entry-reading { color: var(--muted); font-size: 16px; letter-spacing: 0.08em; }
 .entry-word { font-family: var(--mincho); font-weight: 400; font-size: 40px; line-height: 1.25; letter-spacing: 0.04em; margin: 0; }
 
@@ -117,4 +118,5 @@ button.text { border: 0; background: none; padding: 0 8px; height: 36px; }
 .inline-form input { flex: 1; min-width: 0; }
 .field { display: block; margin: 12px 0; }
 .field span { display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
-.field input { width: 100%; }
+.field input, .field select { width: 100%; }
+.button-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }

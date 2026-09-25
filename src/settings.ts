@@ -1,13 +1,28 @@
+/** Cómo se añaden las tarjetas: abriendo AnkiMobile o mandándolas al servidor propio. */
+export type AnkiMode = "ankimobile" | "server";
+
 export interface Settings {
   decks: string[];
   lastDeck: string;
   noteType: string;
   profile: string;
   tags: string;
+  mode: AnkiMode;
+  serverUrl: string;
+  serverToken: string;
 }
 
 const KEY = "jp-dict-settings";
-const DEFAULTS: Settings = { decks: ["日本語"], lastDeck: "日本語", noteType: "JP Dict", profile: "", tags: "jp-dict" };
+const DEFAULTS: Settings = {
+  decks: ["日本語"],
+  lastDeck: "日本語",
+  noteType: "JP Dict",
+  profile: "",
+  tags: "jp-dict",
+  mode: "ankimobile",
+  serverUrl: "",
+  serverToken: "",
+};
 
 export function loadSettings(): Settings {
   try {
