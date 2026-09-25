@@ -287,28 +287,37 @@ class AnkiService:
 
     # ---- duplicados ----------------------------------------------------
 
-    def check_notes(self, pares: list[tuple[str, str]]) -> list[int]:
+    def check_notes(self, pares: list[tuple[str, str]]) -> list[dict]:
         """
         Cuántas notas de la colección tienen ya esa palabra, mirando TODOS los tipos de nota.
 
         Se usa la búsqueda `*:palabra` (algún campo es exactamente eso) y no `palabra` a secas:
         buscando el texto suelto, 食べる aparece en 74 notas de una colección con frases minadas,
         y eso no es un duplicado. Con `*:` son 2, que es lo que interesa saber.
+
+        Además se cuenta cuántas de esas notas ya están en estudio (`-is:new`): tener la palabra
+        en una tarjeta nueva que nunca has visto no es lo mismo que tenerla aprendida.
+
+        KOTODEX_DUPES_EXCLUDE_DECKS deja fuera los mazos que no cuentan (otro idioma, material
+        viejo, lo que sea).
         """
+        excluir = "".join(f' -deck:"{_escapar(m)}"' for m in self.settings.dupes_exclude_decks)
         with self._lock:
-            salida: list[int] = []
+            salida: list[dict] = []
             for expression, reading in pares:
                 # dict.fromkeys quita repetidos manteniendo el orden (palabra en kana = lectura).
                 terminos = [t for t in dict.fromkeys([expression.strip(), reading.strip()]) if t]
                 if not terminos:
-                    salida.append(0)
+                    salida.append({"notes": 0, "studied": 0})
                     continue
-                consulta = " OR ".join(f'"*:{_escapar(t)}"' for t in terminos)
+                consulta = "(" + " OR ".join(f'"*:{_escapar(t)}"' for t in terminos) + ")" + excluir
                 try:
-                    salida.append(len(self.col.find_notes(consulta)))
+                    total = len(self.col.find_notes(consulta))
+                    estudiadas = len(self.col.find_notes(consulta + " -is:new")) if total else 0
+                    salida.append({"notes": total, "studied": estudiadas})
                 except Exception:
                     # Una palabra rara no puede tumbar la comprobación de las demás.
-                    salida.append(0)
+                    salida.append({"notes": 0, "studied": 0})
             return salida
 
     # ---- sincronización ------------------------------------------------

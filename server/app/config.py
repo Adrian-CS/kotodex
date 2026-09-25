@@ -49,6 +49,7 @@ class Settings:
     smtp_from: str
     smtp_to: str
     notify_webhook: str
+    dupes_exclude_decks: tuple[str, ...]
 
     @property
     def can_sync(self) -> bool:
@@ -95,4 +96,7 @@ def load_settings() -> Settings:
         smtp_from=_env("KOTODEX_SMTP_FROM"),
         smtp_to=_env("KOTODEX_SMTP_TO"),
         notify_webhook=_env("KOTODEX_NOTIFY_WEBHOOK"),
+        dupes_exclude_decks=tuple(
+            d.strip() for d in _env("KOTODEX_DUPES_EXCLUDE_DECKS").split(",") if d.strip()
+        ),
     )

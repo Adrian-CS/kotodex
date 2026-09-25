@@ -123,6 +123,7 @@ def test_check_detecta_lo_que_ya_esta(client):
     assert r.status_code == 200
     resultados = r.json()["results"]
     assert resultados[0]["notes"] >= 1, "食べる se añadió antes en estos tests"
+    assert resultados[0]["studied"] == 0, "las tarjetas recién creadas son nuevas"
     assert resultados[1]["notes"] == 0
 
 

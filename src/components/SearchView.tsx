@@ -3,7 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db, entryKey } from "../db";
 import { recordSearch } from "../history";
 import { search, type Entry } from "../search";
-import { checkNotes } from "../server";
+import { checkNotes, type WordCheck } from "../server";
 import type { Settings } from "../settings";
 import { EntryCard } from "./EntryCard";
 
@@ -18,7 +18,7 @@ interface Props {
 export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts }: Props) {
   const [results, setResults] = useState<Entry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [dupes, setDupes] = useState<Map<string, number>>(new Map());
+  const [dupes, setDupes] = useState<Map<string, WordCheck>>(new Map());
   const dictCount = useLiveQuery(() => db.dictionaries.count(), []);
   const requestId = useRef(0);
 
@@ -49,7 +49,7 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
     checkNotes(settings, results.map(e => ({ expression: e.expression, reading: e.reading })))
       .then(r => {
         if (cancelado) return;
-        setDupes(new Map(r.results.map(x => [entryKey(x.expression, x.reading), x.notes])));
+        setDupes(new Map(r.results.map(x => [entryKey(x.expression, x.reading), x])));
       })
       .catch(() => { /* sin servidor no se marca nada, y ya está */ });
     return () => { cancelado = true; };

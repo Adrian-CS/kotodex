@@ -153,7 +153,7 @@ async def check_notes(body: CheckRequest) -> dict:
     conteos = await run_in_threadpool(service.check_notes, pares)
     return {
         "results": [
-            {"expression": w.expression, "reading": w.reading, "notes": n}
+            {"expression": w.expression, "reading": w.reading, **n}
             for w, n in zip(body.words, conteos)
         ]
     }

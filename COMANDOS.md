@@ -6,6 +6,104 @@ pone `C:\dev\kotodex>` a secas, escribe `powershell` y pulsa Enter.
 
 ---
 
+## Al encender el portátil
+
+Casi todo arranca solo. Esto es para comprobarlo o para levantarlo a mano si algo no subió.
+
+```powershell
+# 1. ¿Está el servidor?
+curl.exe http://127.0.0.1:8000/health
+# Si no responde:
+Start-Process powershell -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File','C:\dev\kotodex\server\deploy\windows\start-kotodex.ps1'
+
+# 2. ¿Está Tailscale sirviendo? (te recuerda la URL que va en Ajustes de la PWA)
+tailscale serve status
+# Si no sale nada:
+tailscale serve --bg 8000
+
+# 3. ¿Está VOICEVOX? (solo si quieres audio sintetizado)
+curl.exe http://127.0.0.1:50021/version
+
+# 4. Anki de escritorio: ábrelo si vas a usar el addon de audio.
+```
+
+En `/health` deberías ver `"audio":true`, `"sync":true` y el bloque `autosync`. En el iPhone,
+acuérdate de tener la app de Tailscale activa.
+
+## Cada vez que cambiamos el software
+
+**Si el cambio toca `src/`** (buscador, interfaz, historial, diccionarios):
+
+```powershell
+cd C:\dev\kotodex
+npm run build
+npx wrangler pages deploy dist --project-name kotodex
+```
+
+Se despliega en `https://kotodex.pages.dev`, que es la URL fija. Wrangler imprime otra con un hash
+delante: esa es la instantánea de ese despliegue concreto, no la uses.
+
+En el iPhone la PWA se actualiza sola al abrirla. Si sigue con lo viejo, ciérrala del multitarea.
+
+**Si el cambio toca el formato de los diccionarios** (índices nuevos, campos nuevos), además hay que
+**borrar y reimportar los diccionarios** en el iPhone. Lo que ya está guardado no se reindexa solo.
+
+**Si el cambio toca `server/`** (API, audio, sync, avisos):
+
+```powershell
+cd C:\dev\kotodex\server
+.\deploy\windows
+estart-kotodex.ps1
+```
+
+**Si cambia algo del audio** (voz, fuente), borra también la caché o seguirás oyendo lo anterior:
+
+```powershell
+Remove-Item C:\dev\kotodex\server\dataudio-cache -Recurse -Force
+```
+
+**Comprobar antes de desplegar**, siempre:
+
+```powershell
+cd C:\dev\kotodex
+npx tsc -p . --noEmit
+npm test
+cd server; $env:PYTHONPATH="."; .env\Scripts\python.exe -m pytest tests -q
+```
+
+## Voces de VOICEVOX
+
+El número de `KOTODEX_VOICEVOX_SPEAKER` es el del **estilo**, no el del personaje.
+
+| Personaje | Estilos (nombre=número) |
+| --- | --- |
+| 四国めたん | ノーマル=2, あまあま=0, ツンツン=6, セクシー=4, ささやき=36, ヒソヒソ=37 |
+| ずんだもん | ノーマル=3, あまあま=1, ツンツン=7, セクシー=5, ささやき=22 |
+| 春日部つむぎ | ノーマル=8 |
+| 雨晴はう | ノーマル=10 |
+| 波音リツ | ノーマル=9, クイーン=65 |
+| 玄野武宏 (masculina) | ノーマル=11, 喜び=39, ツンギレ=40, 悲しみ=41 |
+| 白上虎太郎 | ふつう=12, わーい=32, びくびく=33, おこ=34 |
+| 青山龍星 (masculina) | ノーマル=13, 熱血=81, 不機嫌=82, しっとり=84, 囁き=86 |
+| 冥鳴ひまり | ノーマル=14 |
+| 九州そら | ノーマル=16, あまあま=15, ツンツン=18, セクシー=17 |
+| もち子さん | ノーマル=20, 泣き=77, 怒り=78, 喜び=79, のんびり=80 |
+| 剣崎雌雄 (masculina) | ノーマル=21 |
+| WhiteCUL | ノーマル=23, たのしい=24, かなしい=25 |
+| **No.7** | **ノーマル=29, アナウンス=30**, 読み聞かせ=31 |
+| ナースロボ＿タイプＴ | ノーマル=47, 楽々=48, 内緒話=50 |
+| 猫使アル | ノーマル=55, おちつき=56, うきうき=57 |
+| 満別花丸 | ノーマル=69, 元気=70, ささやき=71 |
+
+Para vocabulario, **29 o 30** (No.7) son las más neutras. Voz masculina: **11** o **13**.
+La lista completa (30 personajes, más de 100 estilos):
+
+```powershell
+curl.exe http://127.0.0.1:50021/speakers
+```
+
+Tras cambiar la voz: reinicia el servidor **y borra la caché de audio**.
+
 ## Servidor: día a día
 
 ```powershell
@@ -98,6 +196,8 @@ Tras cualquier cambio: `.\deploy\windows\restart-kotodex.ps1`.
 | `KOTODEX_SYNC_EVERY_HOURS` | Sync automático cada X horas. 0 lo desactiva. |
 | `KOTODEX_SMTP_*` | Avisar por correo si el sync automático falla. |
 | `KOTODEX_NOTIFY_WEBHOOK` | Avisar por ntfy u otro webhook de texto plano. |
+| `KOTODEX_VOICEVOX_URL` / `_SPEAKER` | Síntesis de voz y qué estilo usar (ver tabla arriba). |
+| `KOTODEX_DUPES_EXCLUDE_DECKS` | Mazos que no cuentan al avisar de duplicados. |
 
 ```powershell
 # Ver el token sin abrir el fichero

@@ -5,7 +5,7 @@ import { pitchField } from "../pitch";
 import type { DefRole, Entry } from "../search";
 import type { Settings } from "../settings";
 import { ankiMobileUrl, buildFields } from "../anki";
-import { addNote, ServerError } from "../server";
+import { addNote, ServerError, type WordCheck } from "../server";
 
 const SECTIONS: { role: DefRole; label: string; lang: string }[] = [
   { role: "ja", label: "国語", lang: "ja" },
@@ -23,8 +23,8 @@ interface Props {
   entry: Entry;
   settings: Settings;
   setSettings: (s: Settings) => void;
-  /** Notas que ya hay en la colección con esta palabra. undefined = todavía sin comprobar. */
-  inCollection?: number;
+  /** Qué hay ya en la colección con esta palabra. undefined = todavía sin comprobar. */
+  inCollection?: WordCheck;
 }
 
 export function EntryCard({ entry, settings, setSettings, inCollection }: Props) {
@@ -89,9 +89,13 @@ export function EntryCard({ entry, settings, setSettings, inCollection }: Props)
         </section>
       ))}
 
-      {inCollection !== undefined && inCollection > 0 && (
+      {inCollection !== undefined && inCollection.notes > 0 && (
         <p className="dup-note">
-          Ya en tu colección: {inCollection} {inCollection === 1 ? "nota" : "notas"}
+          Ya en tu colección: {inCollection.notes} {inCollection.notes === 1 ? "nota" : "notas"}
+          {" · "}
+          {inCollection.studied === 0
+            ? "ninguna estudiada todavía"
+            : `${inCollection.studied} en estudio`}
         </p>
       )}
 

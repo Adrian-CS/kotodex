@@ -83,9 +83,18 @@ export const listDecks = (s: Settings) =>
 export const ensureNotetype = (s: Settings) =>
   call<EnsureResult>(s, "/notetype/ensure", { force: false });
 
-export const sync = (s: Settings) => call<SyncResult>(s, "/sync", { wait_media: true });
+// wait_media: false — la media sigue subiendo en segundo plano. Con una colección grande,
+// esperarla deja el botón de Ajustes colgado varios minutos sin decir nada.
+export const sync = (s: Settings) => call<SyncResult>(s, "/sync", { wait_media: false });
 
-export interface WordCheck { expression: string; reading: string; notes: number }
+export interface WordCheck {
+  expression: string;
+  reading: string;
+  /** Notas que ya tienen la palabra. */
+  notes: number;
+  /** De esas, cuántas ya están en estudio (no son tarjetas nuevas sin ver). */
+  studied: number;
+}
 
 /** Cuántas notas hay ya en la colección con cada palabra (cualquier tipo de nota). */
 export const checkNotes = (s: Settings, words: { expression: string; reading: string }[]) =>

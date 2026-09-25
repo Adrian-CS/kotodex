@@ -19,10 +19,13 @@ export function SettingsView({ settings, setSettings }: Props) {
     setNewDeck("");
   }
 
-  /** Lanza una acción contra el servidor y enseña el resultado, sea bueno o malo. */
-  async function run(action: () => Promise<string>) {
+  /**
+   * Lanza una acción contra el servidor y enseña el resultado, sea bueno o malo.
+   * `enCurso` se enseña mientras tanto: sin eso, sincronizar parecía no hacer nada.
+   */
+  async function run(action: () => Promise<string>, enCurso: string) {
     setBusy(true);
-    setFeedback(null);
+    setFeedback({ ok: true, text: enCurso });
     try {
       setFeedback({ ok: true, text: await action() });
     } catch (e) {
@@ -36,7 +39,7 @@ export function SettingsView({ settings, setSettings }: Props) {
     const h = await health(settings);
     return `Conectado. Tipo de nota «${h.notetype}», audio ${h.audio ? "configurado" : "sin configurar"}, ` +
       `sync con AnkiWeb ${h.sync ? "disponible" : "sin credenciales"}.`;
-  });
+  }, "Conectando…");
 
   const cargarMazos = () => run(async () => {
     const { decks } = await listDecks(settings);
@@ -47,18 +50,20 @@ export function SettingsView({ settings, setSettings }: Props) {
       lastDeck: decks.includes(settings.lastDeck) ? settings.lastDeck : decks[0],
     });
     return `${decks.length} ${decks.length === 1 ? "mazo cargado" : "mazos cargados"} desde el servidor.`;
-  });
+  }, "Cargando mazos…");
 
   const crearTipoDeNota = () => run(async () => {
     const r = await ensureNotetype(settings);
     const base = r.created ? "Tipo de nota creado." : "Tipo de nota actualizado (plantillas y CSS).";
     return r.warnings.length ? `${base} ${r.warnings.join(" ")}` : base;
-  });
+  }, "Creando el tipo de nota…");
 
   const sincronizar = () => run(async () => {
     const r = await sync(settings);
-    return `Sincronizado (${r.required}). Media: ${r.media}.${r.server_message ? ` ${r.server_message}` : ""}`;
-  });
+    // La media sigue subiendo de fondo: se avisa para que no parezca que falta algo.
+    return `Sincronizado (${r.required}). La media sigue subiendo en segundo plano.` +
+      `${r.server_message ? ` ${r.server_message}` : ""}`;
+  }, "Sincronizando con AnkiWeb…");
 
   return (
     <div className="page">
