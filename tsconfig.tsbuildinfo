@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/anki.ts","./src/db.ts","./src/importer.ts","./src/main.tsx","./src/pitch.ts","./src/search.ts","./src/settings.ts","./src/structured.ts","./src/components/DictionariesView.tsx","./src/components/EntryCard.tsx","./src/components/SearchView.tsx","./src/components/SettingsView.tsx"],"version":"5.9.3"}

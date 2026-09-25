@@ -1,0 +1,120 @@
+/* Misma identidad que la tarjeta de Anki: tinta sobre papel, mincho para el término, 藍 solo para pitch y acciones. */
+:root {
+  --ink: #1d1f24;
+  --muted: #6b6f78;
+  --paper: #fbfbf8;
+  --sheet: #ffffff;
+  --rule: #dcdcd4;
+  --accent: #2f5d8a;
+  --accent-ink: #ffffff;
+  --danger: #a33a2f;
+  --sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", system-ui, sans-serif;
+  --mincho: "Hiragino Mincho ProN", "Noto Serif JP", "Noto Serif CJK JP", serif;
+  --tabs-h: 56px;
+  color-scheme: light dark;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #e8e6e0; --muted: #9a9ca3; --paper: #1b1c1f; --sheet: #232428;
+    --rule: #34363b; --accent: #8fb4dc; --accent-ink: #14202d; --danger: #e08a7f;
+  }
+}
+:root[data-theme="dark"] {
+  --ink: #e8e6e0; --muted: #9a9ca3; --paper: #1b1c1f; --sheet: #232428;
+  --rule: #34363b; --accent: #8fb4dc; --accent-ink: #14202d; --danger: #e08a7f;
+}
+
+*, *::before, *::after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 17px; line-height: 1.6; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+.view { max-width: 640px; margin: 0 auto; padding: 0 16px calc(var(--tabs-h) + env(safe-area-inset-bottom, 0px) + 24px); }
+
+/* Pestañas inferiores */
+.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex;
+  background: var(--paper); border-top: 1px solid var(--rule);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.tab { flex: 1; height: var(--tabs-h); border: 0; background: none; color: var(--muted); font-size: 14px; }
+.tab[aria-current="page"] { color: var(--ink); font-weight: 600; }
+
+/* Búsqueda */
+.search-bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; background: var(--paper); padding: 12px 0; }
+.search-bar input {
+  width: 100%; height: 48px; padding: 0 16px; border: 1px solid var(--rule); border-radius: 12px;
+  background: var(--sheet); font-size: 20px; -webkit-appearance: none; appearance: none;
+}
+.empty { color: var(--muted); text-align: center; padding: 48px 8px; }
+.empty .primary { margin-top: 8px; }
+.error { color: var(--danger); }
+
+/* Entrada del diccionario */
+.entry { padding: 20px 0 24px; border-bottom: 1px solid var(--rule); }
+.entry-head { text-align: center; }
+.entry-reading { color: var(--muted); font-size: 16px; letter-spacing: 0.08em; }
+.entry-word { font-family: var(--mincho); font-weight: 400; font-size: 40px; line-height: 1.25; letter-spacing: 0.04em; margin: 0; }
+
+.pitch-block { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 24px; margin: 8px 0 4px; }
+.pitch-item { margin: 0; text-align: center; }
+.pitch-item figcaption { font-size: 12px; color: var(--muted); }
+svg.pitch { max-width: 100%; height: auto; color: var(--accent); overflow: visible; }
+svg.pitch line { stroke: currentColor; stroke-width: 2; }
+svg.pitch circle { fill: currentColor; }
+svg.pitch circle.particle { fill: var(--paper); stroke: currentColor; stroke-width: 2; }
+svg.pitch text { fill: var(--ink); font-size: 15px; text-anchor: middle; }
+
+.defs { margin-top: 16px; }
+.defs-label { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 4px; }
+.defs-ja .def-html { font-family: var(--mincho); line-height: 1.9; }
+.dict-block + .dict-block { margin-top: 12px; }
+.dict-name { font-size: 12px; color: var(--muted); }
+.def-html ol { margin: 0; padding-left: 1.4em; }
+.def-html li + li { margin-top: 2px; }
+.def-html table { border-collapse: collapse; }
+.def-html td, .def-html th { border: 1px solid var(--rule); padding: 2px 6px; }
+.def-html .sc + .sc { margin-top: 4px; }
+
+.entry-actions { display: flex; gap: 8px; margin-top: 20px; }
+.entry-actions select { flex: 1; min-width: 0; }
+.added-note { margin: 8px 0 0; font-size: 13px; color: var(--muted); text-align: right; }
+
+/* Controles */
+select, .inline-form input, .field input {
+  height: 44px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--sheet);
+}
+button { height: 44px; padding: 0 16px; border: 1px solid var(--rule); border-radius: 10px; background: var(--sheet); cursor: pointer; }
+.primary { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 18px;
+  border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-weight: 600; cursor: pointer; }
+.primary:disabled, .primary.disabled { opacity: 0.5; cursor: default; }
+button.text { border: 0; background: none; padding: 0 8px; height: 36px; }
+.danger { color: var(--danger); }
+
+/* Páginas */
+.page h1 { font-size: 24px; margin: 20px 0 4px; }
+.page h2 { font-size: 17px; margin: 0 0 4px; }
+.hint { color: var(--muted); font-size: 14px; }
+.hint code { font-size: 13px; }
+.progress { margin: 16px 0; font-size: 14px; }
+.progress progress { width: 100%; accent-color: var(--accent); }
+
+.dict-list, .deck-list { list-style: none; padding: 0; margin: 16px 0; }
+.dict-item { padding: 12px 0; border-top: 1px solid var(--rule); }
+.dict-title { font-weight: 600; }
+.dict-meta { font-size: 13px; color: var(--muted); }
+.dict-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+.settings-group { padding: 16px 0; border-top: 1px solid var(--rule); }
+.deck-list li { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+.inline-form { display: flex; gap: 8px; }
+.inline-form input { flex: 1; min-width: 0; }
+.field { display: block; margin: 12px 0; }
+.field span { display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
+.field input { width: 100%; }

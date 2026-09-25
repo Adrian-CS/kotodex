@@ -1,0 +1,50 @@
+/* Tinta sobre papel: el término en mincho grande, todo lo demás callado. El gráfico de pitch es lo único con color. */
+.card {
+  --ink: #1d1f24;
+  --muted: #6b6f78;
+  --paper: #fbfbf8;
+  --rule: #dcdcd4;
+  --accent: #2f5d8a;   /* 藍 — solo para el pitch */
+  font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 18px;
+  line-height: 1.7;
+  text-align: center;
+  padding: 24px 16px;
+}
+.card.nightMode, .nightMode .card {
+  --ink: #e8e6e0;
+  --muted: #9a9ca3;
+  --paper: #1b1c1f;
+  --rule: #34363b;
+  --accent: #8fb4dc;
+}
+
+.word {
+  font-family: "Hiragino Mincho ProN", "Noto Serif JP", "Noto Serif CJK JP", serif;
+  font-size: 56px;
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+  margin: 12px 0;
+}
+hr#answer { border: 0; border-top: 1px solid var(--rule); margin: 20px auto; max-width: 480px; }
+
+.reading { font-size: 22px; color: var(--muted); letter-spacing: 0.08em; }
+.audio { margin: 8px 0; }
+
+.pitch-block { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 24px; margin: 12px 0 4px; }
+.pitch-item { margin: 0; }
+.pitch-item figcaption { font-size: 13px; color: var(--muted); }
+svg.pitch { max-width: 100%; height: auto; color: var(--accent); overflow: visible; }
+svg.pitch line { stroke: currentColor; stroke-width: 2; }
+svg.pitch circle { fill: currentColor; }
+svg.pitch circle.particle { fill: var(--paper); stroke: currentColor; stroke-width: 2; }
+svg.pitch text { fill: var(--ink); font-size: 15px; text-anchor: middle; }
+
+.defs { max-width: 560px; margin: 20px auto 0; text-align: left; }
+.def { padding: 10px 0; border-top: 1px solid var(--rule); }
+.def:first-child { border-top: 0; }
+.def-ja { font-family: "Hiragino Mincho ProN", "Noto Serif JP", "Noto Serif CJK JP", serif; line-height: 1.9; }
+.def-es, .def-en { font-size: 16px; }
+.def ol { margin: 0; padding-left: 1.3em; }
