@@ -30,8 +30,14 @@ const MAX_ENTRIES = 20;
 /** Huecos reservados a los resultados encontrados por definición en otro idioma. Sin esto, buscar
  *  人 llena la lista con las decenas de entradas japonesas exactas y 사람 no llega a salir. */
 const CUOTA_CRUZADA = 5;
-/** Tope de términos que se traen de una búsqueda por definición antes de agrupar. */
-const MAX_POR_DEFINICION = 500;
+/**
+ * Tope de términos que se traen de una búsqueda por definición antes de ordenar por relevancia.
+ *
+ * Tiene que ser holgado: las claves llegan ordenadas por id, o sea por orden de importación, y
+ * cortar pronto se queda con las palabras alfabéticamente tempranas del diccionario. Con 500,
+ * buscar 人 no llegaba a ver 사람.
+ */
+const MAX_POR_DEFINICION = 4000;
 
 export async function search(raw: string): Promise<Entry[]> {
   const q = raw.trim();
@@ -183,15 +189,29 @@ async function porTokens(tokens: string[]): Promise<Term[]> {
  * («水») o solo aparece mencionada dentro de una explicación. Buscar 人 devuelve 129 entradas de
  * Naver; solo cuatro la tienen como equivalente, y entre ellas están 사람 y 인간.
  */
+/** Cuántos sentidos se miran antes de dar por perdida la relevancia de una entrada. */
+const MAX_SEGMENTOS = 60;
+
 function relevanciaJaponesa(q: string): (t: Term) => number {
+  // Muchos diccionarios (KRDICT entre ellos) dan el equivalente como lectura+kanji: ひと【人】.
+  // Lo de dentro de los corchetes es exactamente la palabra, así que cuenta como equivalente.
+  const entreCorchetes = `【${q}】`;
   return (t: Term) => {
+    const segmentos = segmentosGlosario(t.glossary);
     let mejor = 3;
-    for (const seg of segmentosGlosario(t.glossary)) {
-      if (seg === q) return 0;
-      if (seg.startsWith(q)) mejor = Math.min(mejor, 1);
-      else if (seg.includes(q)) mejor = Math.min(mejor, 2);
+    let donde = MAX_SEGMENTOS;
+    for (let i = 0; i < segmentos.length && i < MAX_SEGMENTOS; i++) {
+      const seg = segmentos[i];
+      let nivel = 3;
+      if (seg === q || seg.includes(entreCorchetes)) nivel = 0;
+      else if (seg.startsWith(q)) nivel = 1;
+      else if (seg.includes(q)) nivel = 2;
+      if (nivel < mejor) { mejor = nivel; donde = i; }
+      if (mejor === 0) break;
     }
-    return mejor;
+    // El sentido en el que aparece desempata: los diccionarios ponen primero el equivalente
+    // principal. Sin esto, buscar 人 devuelve entradas donde 人 sale de pasada antes que 사람.
+    return mejor * 1000 + Math.min(donde, MAX_SEGMENTOS);
   };
 }
 
@@ -224,7 +244,7 @@ async function armar(
     if (seen.has(t.id!)) continue;
     seen.add(t.id!);
     const key = `${t.expression}\u0000${t.reading}`;
-    const g = groups.get(key) ?? { expression: t.expression, reading: t.reading, score: -Infinity, rel: 3, cruzado: false, terms: [] };
+    const g = groups.get(key) ?? { expression: t.expression, reading: t.reading, score: -Infinity, rel: Number.MAX_SAFE_INTEGER, cruzado: false, terms: [] };
     g.score = Math.max(g.score, t.score);
     if (cruzados?.has(t.id!)) {
       g.cruzado = true;
