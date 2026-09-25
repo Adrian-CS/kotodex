@@ -37,9 +37,12 @@ export async function importDictionary(file: File, onProgress: (p: ImportProgres
   const metaBanks = names.filter(n => /^term_meta_bank_\d+\.json$/.test(n)).sort((a, b) => bankNumber(a) - bankNumber(b));
   if (!termBanks.length && !metaBanks.length) throw new Error(`«${title}» no contiene términos ni datos de pitch.`);
 
+  // Se añade al final de la lista de prioridad.
+  const ordenes = (await db.dictionaries.toArray()).map(d => d.order ?? 0);
   const dictId = await db.dictionaries.add({
     title, revision: String(index.revision ?? ""), role: "other",
     terms: 0, metas: 0, importedAt: Date.now(), enabled: true,
+    order: ordenes.length ? Math.max(...ordenes) + 1 : 0,
   });
 
   const total = termBanks.length + metaBanks.length;
@@ -62,7 +65,7 @@ export async function importDictionary(file: File, onProgress: (p: ImportProgres
           glossary,
           sequence: Number(r[6]) || 0,
           // Índice para buscar por definición. En un monolingüe japonés sale vacío y no ocupa.
-          words: indexWords(glossary),
+          words: indexWords(glossary, r[0]),
         };
       });
       await db.terms.bulkAdd(terms);

@@ -19,7 +19,15 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
   const [results, setResults] = useState<Entry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dupes, setDupes] = useState<Map<string, WordCheck>>(new Map());
-  const dictCount = useLiveQuery(() => db.dictionaries.count(), []);
+  // Huella de los diccionarios: cambia al importar, borrar, reordenar, cambiar el rol o activar
+  // y desactivar. Se usa como dependencia para que los resultados en pantalla no se queden viejos.
+  const dictHuella = useLiveQuery(
+    async () => (await db.dictionaries.toArray())
+      .map(d => `${d.id}:${d.enabled ? 1 : 0}:${d.role}:${d.order ?? d.id}`)
+      .join("|"),
+    [],
+  );
+  const dictCount = dictHuella === undefined ? undefined : (dictHuella ? dictHuella.split("|").length : 0);
   const requestId = useRef(0);
 
   useEffect(() => {
@@ -37,7 +45,7 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
         .catch(e => { if (id === requestId.current) setError(String(e?.message ?? e)); });
     }, 200);
     return () => clearTimeout(timer);
-  }, [query, dictCount]);
+  }, [query, dictHuella]);
 
   // Comprobar qué palabras ya están en la colección. Va aparte de la búsqueda porque sale a la
   // red y tarda (~60 ms por palabra): los resultados se enseñan ya y las marcas llegan después.

@@ -49,9 +49,16 @@ function renderNode(n: any): string {
 
 interface Item { html: string; plain: boolean }
 
+/**
+ * Texto suelto a HTML. Los saltos de linea cuentan: hay diccionarios (Naver KR-JP y muchos
+ * monolingues) que separan los sentidos con \n dentro de una sola cadena de texto.
+ * Sin convertirlos, la definicion sale como un muro ilegible.
+ */
+const plainHtml = (s: string) => escapeHtml(s).replace(/\n/g, "<br>");
+
 function glossaryItem(g: any): Item | null {
-  if (typeof g === "string") return { html: escapeHtml(g), plain: true };
-  if (g?.type === "text") return { html: escapeHtml(String(g.text)), plain: true };
+  if (typeof g === "string") return { html: plainHtml(g), plain: true };
+  if (g?.type === "text") return { html: plainHtml(String(g.text)), plain: true };
   if (g?.type === "structured-content") return { html: `<div class="sc">${renderNode(g.content)}</div>`, plain: false };
   return null; // imágenes, formas deflexionadas, etc.
 }

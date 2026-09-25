@@ -12,6 +12,8 @@ export interface Dictionary {
   metas: number;
   /** Cuántas entradas de pitch trae. Falta en lo importado antes de contarlo. */
   pitches?: number;
+  /** Prioridad elegida por el usuario: decide qué definición sale antes. Menor = primero. */
+  order?: number;
   importedAt: number;
   enabled: boolean;
 }

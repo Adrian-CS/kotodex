@@ -62,6 +62,22 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
 - `src/search.ts` — exacta por expresión/lectura (variantes hira/kata) → si no hay, **deinflexión** → si no, prefijo
   por expresión (limit 200). Agrupa por (expresión, lectura), ordena exacta-expr > exacta-lectura > prefijo, luego
   score. Máx 20. Pitch desde metas. La búsqueda por prefijo aún no mira `reading`.
+- Prioridad de diccionarios: `Dictionary.order` (flechas en Diccionarios). Decide el orden de los
+  bloques de definición Y el de las secciones (国語/Español/English), en la app y en la tarjeta.
+  SearchView depende de una «huella» de los diccionarios, no solo del número: sin eso, reordenar o
+  desactivar uno no refresca lo que hay en pantalla.
+- Búsqueda japonés → otro idioma: se indexa el japonés del glosario **solo si la cabecera no es
+  japonesa**. Así entra un diccionario coreano→japonés y quedan fuera los monolingües, donde buscar
+  人 devolvería miles de entradas que solo lo mencionan. Los resultados van con cuota reservada
+  (`CUOTA_CRUZADA`) porque si no, las coincidencias exactas japonesas llenan la lista.
+  Calidad honesta: depende de cómo escriba el glosario cada diccionario. Con Naver KR-JP, 人 y 本
+  dan buenos resultados (사람/인간, 도서/서적) pero 水 no encuentra 물, porque su definición no trae
+  水 como equivalente suelto sino dentro de una explicación.
+- `src/deinflect-ko.ts` + `deinflect-ko-rules.ts` — deinflector coreano, portado de Yomitan
+  (`korean-transforms.js`): 450 transformaciones, 2682 reglas. Las reglas trabajan sobre JAMO
+  descompuestos (먹다 = ㅁㅓㄱㄷㅏ), así que usa `hangul-js` para descomponer y recomponer. Solo se
+  aceptan candidatos que sean forma de diccionario (verbo, adjetivo, 이다); sin ese filtro 갔어요
+  devuelve 갔 antes que 가다. Se carga con `import()` dinámico: 100 KB que no lastran el arranque.
 - `src/deinflect.ts` — tabla de Yomitan (`ext/data/deinflect.json`, 36 razones / 569 reglas) en formato compacto
   `"sufijo:reemplazo:clasesEntrada:clasesSalida"`, con las razones en español. Filtra por el campo `rules` de
   term_bank; si el diccionario no lo trae (monolingües), acepta. `suruStem()` cubre 勉強しました → 勉強 (rules `vs`).
@@ -126,6 +142,9 @@ junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173
   colección desde fuera mientras corre (el proceso se queda colgado); `server/deploy/backup.sh` para el servicio.
 - No poner Cloudflare Access interactivo en el host de la API: tumba el preflight CORS y la PWA deja de funcionar.
   Autentica el bearer token.
+- Coreano: el diccionario Naver KR-JP funciona sin cambios (el rol se detecta como "ja" porque sus
+  definiciones son japonesas). No hay pitch ni hace falta. Los diccionarios coreanos no traen `rules`,
+  así que no hay clase de palabra que filtrar.
 - Los diccionarios importados antes del deinflector no guardaron `rules`: siguen funcionando, pero sin filtrar por
   clase de palabra (algún candidato de más). Reimportarlos lo arregla; no hay migración porque reescribir 200k filas
   en iOS no compensa.

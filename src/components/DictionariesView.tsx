@@ -14,7 +14,14 @@ const ROLES: { value: Role; label: string }[] = [
 const formatMB = (bytes?: number) => (bytes == null ? "—" : `${(bytes / 1024 / 1024).toFixed(0)} MB`);
 
 export function DictionariesView() {
-  const dicts = useLiveQuery(() => db.dictionaries.toArray(), []);
+  const dicts = useLiveQuery(
+    async () => {
+      const todos = await db.dictionaries.toArray();
+      // Menor "order" = más prioridad. Los importados antes de tener el campo van por id.
+      return todos.sort((a, b) => (a.order ?? a.id!) - (b.order ?? b.id!) || a.id! - b.id!);
+    },
+    [],
+  );
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [usage, setUsage] = useState<{ usage?: number; quota?: number }>({});
@@ -51,12 +58,27 @@ export function DictionariesView() {
     }
   }
 
+  /** Sube o baja un diccionario en la lista de prioridad intercambiando su orden con el vecino. */
+  async function mover(indice: number, salto: -1 | 1) {
+    if (!dicts) return;
+    const vecino = indice + salto;
+    if (vecino < 0 || vecino >= dicts.length) return;
+    const a = dicts[indice], b = dicts[vecino];
+    await db.transaction("rw", db.dictionaries, async () => {
+      await db.dictionaries.update(a.id!, { order: b.order ?? b.id! });
+      await db.dictionaries.update(b.id!, { order: a.order ?? a.id! });
+    });
+  }
+
   const busy = progress !== null || borrando !== null;
 
   return (
     <div className="page">
       <h1>Diccionarios</h1>
-      <p className="hint">Importa diccionarios en formato Yomitan (.zip). Se guardan solo en este dispositivo.</p>
+      <p className="hint">
+        Importa diccionarios en formato Yomitan (.zip). Se guardan solo en este dispositivo.
+        El orden manda: las definiciones salen de arriba abajo, tanto al buscar como en la tarjeta.
+      </p>
 
       <label className={`primary file-button${busy ? " disabled" : ""}`}>
         {busy ? "Importando…" : "Importar .zip"}
@@ -73,9 +95,17 @@ export function DictionariesView() {
       {error && <p className="error">{error}</p>}
 
       <ul className="dict-list">
-        {dicts?.map(d => (
+        {dicts?.map((d, i) => (
           <li key={d.id} className="dict-item">
-            <div className="dict-title">{d.title}</div>
+            <div className="dict-title">
+              <span className="dict-orden">
+                <button className="text" disabled={i === 0} aria-label={`Subir ${d.title}`}
+                  onClick={() => mover(i, -1)}>↑</button>
+                <button className="text" disabled={i === (dicts?.length ?? 0) - 1} aria-label={`Bajar ${d.title}`}
+                  onClick={() => mover(i, 1)}>↓</button>
+              </span>
+              {d.title}
+            </div>
             <div className="dict-meta">
               {[
                 d.terms > 0 && `${d.terms.toLocaleString("es")} términos`,

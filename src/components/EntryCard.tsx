@@ -7,11 +7,11 @@ import type { Settings } from "../settings";
 import { ankiMobileUrl, buildFields } from "../anki";
 import { addNote, ServerError, type WordCheck } from "../server";
 
-const SECTIONS: { role: DefRole; label: string; lang: string }[] = [
-  { role: "ja", label: "国語", lang: "ja" },
-  { role: "es", label: "Español", lang: "es" },
-  { role: "en", label: "English", lang: "en" },
-];
+const ETIQUETAS: Record<DefRole, { label: string; lang: string }> = {
+  ja: { label: "国語", lang: "ja" },
+  es: { label: "Español", lang: "es" },
+  en: { label: "English", lang: "en" },
+};
 
 type Status =
   | { kind: "idle" }
@@ -77,9 +77,9 @@ export function EntryCard({ entry, settings, setSettings, inCollection }: Props)
         <div className="pitch-block" dangerouslySetInnerHTML={{ __html: pitchField(entry.reading, entry.pitches) }} />
       )}
 
-      {SECTIONS.map(({ role, label, lang }) => entry.defs[role].length > 0 && (
-        <section key={role} className={`defs defs-${role}`} lang={lang}>
-          <h3 className="defs-label">{label}</h3>
+      {entry.sections.map(role => (
+        <section key={role} className={`defs defs-${role}`} lang={ETIQUETAS[role].lang}>
+          <h3 className="defs-label">{ETIQUETAS[role].label}</h3>
           {entry.defs[role].map(b => (
             <div key={b.dictTitle} className="dict-block">
               {entry.defs[role].length > 1 && <div className="dict-name">{b.dictTitle}</div>}
