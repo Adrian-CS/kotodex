@@ -5,9 +5,14 @@ Síntesis de voz con VOICEVOX (motor local, gratuito, https://voicevox.hiroshiba
 que **se le puede imponer el acento tonal**: sin eso, un audio sintético contradiría al gráfico de
 pitch de la tarjeta, que es peor que no tener audio.
 
-Son dos peticiones:
-  POST /audio_query?text=…&speaker=N   → devuelve la consulta con las moras y el acento que él cree
-  POST /synthesis?speaker=N            → con esa consulta (ya corregida) en el cuerpo, devuelve WAV
+Son tres peticiones, y la del medio es imprescindible:
+  POST /audio_query?text=…&speaker=N   → la consulta, con las moras y el acento que él deduce
+  POST /mora_data?speaker=N            → recalcula la ALTURA de cada mora con el acento corregido
+  POST /synthesis?speaker=N            → con esa consulta ya arreglada, devuelve el WAV
+
+Sin el paso de /mora_data no sirve de nada tocar `accent`: /synthesis no lo mira, usa el `pitch`
+que cada mora trae ya calculado. Cambiar solo `accent` devuelve un audio byte a byte idéntico
+(comprobado: 橋 y 箸 sonaban igual).
 """
 
 from __future__ import annotations
@@ -57,6 +62,13 @@ def synthesize(
                 moras = len(frases[0].get("moras") or [])
                 if moras:
                     frases[0]["accent"] = _accent_para(downstep, moras)
+                    # Imprescindible: recalcular la altura de cada mora. Sin esto, /synthesis
+                    # ignora el acento nuevo y devuelve exactamente el mismo audio.
+                    recalculo = requests.post(
+                        f"{url}/mora_data", params={"speaker": speaker}, json=frases, timeout=timeout
+                    )
+                    recalculo.raise_for_status()
+                    consulta["accent_phrases"] = recalculo.json()
             elif frases:
                 # Varias frases acentuales: el dato de Kanjium es de la palabra entera y no se
                 # sabe repartir, así que se deja el acento que haya deducido VOICEVOX.

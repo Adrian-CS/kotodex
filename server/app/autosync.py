@@ -90,6 +90,22 @@ class AutoSync:
         if self._hilo is not None:
             self._hilo.join(timeout=5)
 
+    def nudge(self, delay_seconds: float = 180.0) -> None:
+        """
+        Adelanta la próxima sincronización tras añadir una nota.
+
+        No sincroniza al momento a propósito: añadir tres palabras seguidas haría tres syncs. Con
+        el retraso, una ráfaga de altas se resuelve en uno solo. Nunca la retrasa, solo la adelanta.
+        """
+        s = self.settings
+        if s.sync_every_hours <= 0 or not s.can_sync:
+            return
+        intervalo = s.sync_every_hours * 3600
+        objetivo = time.time() + delay_seconds
+        if objetivo < self._leer_marca() + intervalo:
+            self._escribir_marca(objetivo - intervalo)
+            log.info("Sincronización adelantada: en %.0f s.", delay_seconds)
+
     @property
     def proximo_en_segundos(self) -> float | None:
         if self.settings.sync_every_hours <= 0:
@@ -105,8 +121,9 @@ class AutoSync:
         while not self._parar.is_set():
             espera = self.proximo_en_segundos or 0.0
             if espera > 0:
-                # Despertar como mucho cada 5 min, para reaccionar rápido al apagado.
-                if self._parar.wait(min(espera, 300)):
+                # Despertar cada minuto como mucho: así se reacciona rápido al apagado y a las
+                # sincronizaciones adelantadas por nudge().
+                if self._parar.wait(min(espera, 60)):
                     return
                 continue
             self._sincronizar()

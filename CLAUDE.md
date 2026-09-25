@@ -115,6 +115,10 @@ junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173
 - JMdict completo ≈ 200k términos: la importación va en el hilo principal → si se nota lenta, moverla a Web Worker.
 - AnkiMobile necesita que el tipo de nota y el mazo existan con el nombre exacto.
 - Longitud de URL: las defs largas inflan la URL del scheme; el servidor lo resuelve.
+- VOICEVOX: tocar `accent` en la consulta NO cambia el audio. `/synthesis` usa el `pitch` ya calculado
+  de cada mora, así que hay que pasar por `/mora_data` para recalcularlo. Sin eso, 橋 y 箸 suenan igual.
+- Borrar un diccionario quita primero su ficha y luego los términos por lotes. Con una transacción
+  única, borrar JMdict (284k filas) bloquea IndexedDB y parece que la interfaz entera se ha colgado.
 - `server/data/collection.media` tiene ~200.000 ficheros DENTRO del proyecto. Sin `optimizeDeps.entries` en
   vite.config.ts, `npm run dev` se cuelga en "scanning dependencies" porque Vite busca los puntos de entrada
   con un glob `**/*.html` por todo el árbol. No quitar esa opción ni el `server.watch.ignored`.

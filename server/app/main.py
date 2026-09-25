@@ -132,7 +132,7 @@ async def ensure_notetype(body: EnsureNotetypeRequest | None = None) -> dict:
 
 @app.post("/notes", dependencies=[Auth])
 async def add_note(body: NoteRequest) -> dict:
-    return await run_in_threadpool(
+    nota = await run_in_threadpool(
         service.add_note,
         fields=body.fields,
         deck=body.deck,
@@ -141,6 +141,9 @@ async def add_note(body: NoteRequest) -> dict:
         create_deck=body.create_deck,
         with_audio=body.with_audio,
     )
+    # Que la tarjeta llegue al iPhone sin tener que ir a Ajustes a sincronizar a mano.
+    autosync.nudge()
+    return nota
 
 
 @app.post("/notes/check", dependencies=[Auth])

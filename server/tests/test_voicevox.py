@@ -43,6 +43,15 @@ class Motor(BaseHTTPRequestHandler):
             recibido["speaker_query"] = params.get("speaker", [""])[0]
             salida = json.dumps(CONSULTA_BASE).encode()
             tipo = "application/json"
+        elif url.path == "/mora_data":
+            # El motor real recalcula aqui la altura de cada mora segun el acento.
+            frases = json.loads(cuerpo)
+            recibido["mora_data"] = frases
+            for f in frases:
+                for i, m in enumerate(f["moras"], start=1):
+                    m["pitch"] = 5.9 if i <= f["accent"] else 5.7
+            salida = json.dumps(frases).encode()
+            tipo = "application/json"
         elif url.path == "/synthesis":
             recibido["speaker_synth"] = params.get("speaker", [""])[0]
             recibido["consulta"] = json.loads(cuerpo)
@@ -88,11 +97,22 @@ def test_sintetiza_y_devuelve_wav(motor):
 def test_sin_downstep_no_toca_el_acento(motor):
     synthesize(motor, 1, "たべる", None, 5.0)
     assert acento_enviado() == 1, "el que traía la consulta original"
+    assert "mora_data" not in recibido, "sin acento que imponer no hace falta recalcular"
 
 
 def test_impone_el_acento_de_kanjium(motor):
     synthesize(motor, 1, "たべる", 2, 5.0)
     assert acento_enviado() == 2
+
+
+def test_recalcula_las_alturas_de_las_moras(motor):
+    """Sin esto /synthesis ignora el acento nuevo y devuelve el mismo audio (橋 y 箸 iguales)."""
+    synthesize(motor, 1, "たべる", 2, 5.0)
+    assert "mora_data" in recibido, "hay que pasar por /mora_data"
+    assert recibido["mora_data"][0]["accent"] == 2
+    # Y la consulta que va a /synthesis tiene que llevar ya las alturas recalculadas.
+    alturas = [m["pitch"] for m in recibido["consulta"]["accent_phrases"][0]["moras"]]
+    assert alturas == [5.9, 5.9, 5.7]
 
 
 def test_heiban_va_a_la_ultima_mora(motor):

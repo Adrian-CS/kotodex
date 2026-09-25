@@ -18,6 +18,7 @@ export function DictionariesView() {
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [usage, setUsage] = useState<{ usage?: number; quota?: number }>({});
+  const [borrando, setBorrando] = useState<string | null>(null);
 
   useEffect(() => {
     navigator.storage?.estimate?.().then(setUsage).catch(() => {});
@@ -37,10 +38,20 @@ export function DictionariesView() {
   }
 
   async function onDelete(id: number, title: string) {
-    if (confirm(`¿Borrar «${title}»? Tendrás que volver a importar el .zip para recuperarlo.`)) await deleteDictionary(id);
+    if (!confirm(`¿Borrar «${title}»? Tendrás que volver a importar el .zip para recuperarlo.`)) return;
+    setError(null);
+    setBorrando(`Borrando «${title}»…`);
+    try {
+      // Un diccionario grande tarda: se va enseñando cuánto lleva.
+      await deleteDictionary(id, n => setBorrando(`Borrando «${title}»: ${n.toLocaleString("es")} entradas`));
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    } finally {
+      setBorrando(null);
+    }
   }
 
-  const busy = progress !== null;
+  const busy = progress !== null || borrando !== null;
 
   return (
     <div className="page">
@@ -58,6 +69,7 @@ export function DictionariesView() {
           <progress value={progress.done} max={progress.total} />
         </div>
       )}
+      {borrando && <p className="hint" role="status">{borrando}</p>}
       {error && <p className="error">{error}</p>}
 
       <ul className="dict-list">
@@ -80,7 +92,7 @@ export function DictionariesView() {
                 <input type="checkbox" checked={d.enabled} onChange={e => db.dictionaries.update(d.id!, { enabled: e.target.checked })} />
                 Activo
               </label>
-              <button className="text danger" onClick={() => onDelete(d.id!, d.title)}>Borrar</button>
+              <button className="text danger" disabled={busy} onClick={() => onDelete(d.id!, d.title)}>Borrar</button>
             </div>
           </li>
         ))}

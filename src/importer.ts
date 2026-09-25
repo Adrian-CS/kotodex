@@ -91,10 +91,35 @@ export async function importDictionary(file: File, onProgress: (p: ImportProgres
   return (await db.dictionaries.get(dictId))!;
 }
 
-export async function deleteDictionary(id: number) {
-  await db.transaction("rw", db.terms, db.metas, db.dictionaries, async () => {
-    await db.terms.where("dict").equals(id).delete();
-    await db.metas.where("dict").equals(id).delete();
-    await db.dictionaries.delete(id);
-  });
+const LOTE_BORRADO = 5000;
+
+/**
+ * Borra un diccionario.
+ *
+ * La ficha se quita PRIMERO, para que desaparezca de la lista al instante y la búsqueda deje de
+ * verlo; los términos se borran después, por lotes. Con una transacción única, borrar JMdict
+ * (284.000 términos) bloquea IndexedDB varios segundos: la lista no se refresca y hasta el
+ * interruptor «Activo» de los otros diccionarios se queda esperando.
+ *
+ * Si se interrumpe a medias quedan términos huérfanos, pero son invisibles: la búsqueda solo mira
+ * los de diccionarios que existen y están activos.
+ */
+export async function deleteDictionary(id: number, onProgress?: (borrados: number) => void) {
+  await db.dictionaries.delete(id);
+
+  let borrados = 0;
+  for (;;) {
+    const claves = await db.terms.where("dict").equals(id).limit(LOTE_BORRADO).primaryKeys();
+    if (!claves.length) break;
+    await db.terms.bulkDelete(claves as number[]);
+    borrados += claves.length;
+    onProgress?.(borrados);
+  }
+  for (;;) {
+    const claves = await db.metas.where("dict").equals(id).limit(LOTE_BORRADO).primaryKeys();
+    if (!claves.length) break;
+    await db.metas.bulkDelete(claves as number[]);
+    borrados += claves.length;
+    onProgress?.(borrados);
+  }
 }
