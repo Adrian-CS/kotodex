@@ -91,7 +91,7 @@ async def health() -> dict:
         "status": "ok",
         "notetype": NOTETYPE_NAME,
         "fields": list(FIELDS),
-        "audio": bool(settings.audio_dirs),
+        "audio": settings.has_audio,
         "sync": settings.can_sync,
     }
 

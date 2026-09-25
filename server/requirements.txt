@@ -2,3 +2,5 @@
 anki==26.9.3
 fastapi==0.141.1
 uvicorn[standard]==0.53.0
+# Ya viene con anki, pero audio.py la usa directamente.
+requests==2.34.2

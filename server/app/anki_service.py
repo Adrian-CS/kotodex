@@ -21,7 +21,7 @@ from anki.errors import DBError
 from anki.notes import NoteFieldsCheckResult
 from anki.sync_pb2 import SyncAuth, SyncCollectionResponse
 
-from .audio import DEFAULT_PATTERNS, find_audio
+from .audio import DEFAULT_PATTERNS, fetch_audio, find_audio
 from .config import Settings
 
 # Contrato del tipo de nota: el orden y los nombres están fijados en CLAUDE.md y en notetype/.
@@ -183,6 +183,13 @@ class AnkiService:
             raise ServiceError("Expression está vacío.")
 
         deck = deck.strip() or self.settings.default_deck
+        values = dict(fields)
+
+        # Buscar el audio puede salir a la red, así que va fuera del lock: si no, una fuente HTTP
+        # lenta dejaría la colección bloqueada para el resto de peticiones.
+        audio_path = None
+        if with_audio and not values.get("Audio"):
+            audio_path = self._resolve_audio(values)
 
         with self._lock:
             notetype = self.col.models.by_name(NOTETYPE_NAME)
@@ -199,10 +206,10 @@ class AnkiService:
                     raise ServiceError(f"El mazo «{deck}» no existe.", status=404)
                 deck_id = self.col.decks.id(deck)
 
-            values = dict(fields)
             audio_file = None
-            if with_audio and not values.get("Audio"):
-                audio_file = self._attach_audio(values)
+            if audio_path is not None:
+                audio_file = self.col.media.add_file(str(audio_path))
+                values["Audio"] = f"[sound:{audio_file}]"
 
             note = self.col.new_note(notetype)
             for name, value in values.items():
@@ -228,19 +235,15 @@ class AnkiService:
                 "duplicate": duplicate,
             }
 
-    def _attach_audio(self, values: dict[str, str]) -> str | None:
-        """Busca el audio en el pack local y lo copia a la media de la colección."""
-        path = find_audio(
-            self.settings.audio_dirs,
-            self.settings.audio_patterns or DEFAULT_PATTERNS,
-            values.get("Expression", ""),
-            values.get("Reading", ""),
+    def _resolve_audio(self, values: dict[str, str]) -> Path | None:
+        """Pack local primero (instantáneo y sin red); si no hay, fuentes HTTP con caché."""
+        s = self.settings
+        expression = values.get("Expression", "")
+        reading = values.get("Reading", "")
+        return (
+            find_audio(s.audio_dirs, s.audio_patterns or DEFAULT_PATTERNS, expression, reading)
+            or fetch_audio(s.audio_urls, s.audio_cache, expression, reading, s.audio_timeout)
         )
-        if path is None:
-            return None
-        filename = self.col.media.add_file(str(path))
-        values["Audio"] = f"[sound:{filename}]"
-        return filename
 
     # ---- sincronización ------------------------------------------------
 

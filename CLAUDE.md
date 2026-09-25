@@ -15,13 +15,15 @@ PWA (este repo, Cloudflare Pages + Cloudflare Access)
   └─ Añadir a Anki:
        "ankimobile" → URL scheme de AnkiMobile (sin audio, sale de la app)
        "servidor"   → POST a servidor propio (con audio, sin salir de la app)
-Servidor (server/, HECHO — falta desplegarlo)
-  FastAPI + librería Python `anki`. Se despliega igual en GCP e2-micro, VPS japonés o mini PC en casa.
+Servidor (server/, HECHO)
+  FastAPI + librería Python `anki`, corriendo en el portátil de Adrian y expuesto con Tailscale Funnel.
+  Mismo código en Linux (systemd) si algún día pasa a VM, VPS o mini PC.
   ├─ Colección de Anki PERSISTENTE en disco (para sync incremental, no full sync)
   ├─ Crea la nota, adjunta el audio como media ([sound:x.mp3]), sincroniza con AnkiWeb
   └─ Audio desde un pack local tipo Yomitan (JPod101/NHK/Forvo) en disco o R2 privado
 El usuario sincroniza AnkiMobile después. NO usar Workers para el servidor (necesita proceso Python + disco).
-Oracle Cloud descartado: el registro lo rechaza el antifraude.
+Hosting descartado: Oracle Cloud (el antifraude rechaza el registro) y GCP e2-micro (la IPv4 son ~450円/mes,
+el free tier no la cubre).
 ```
 
 ### Decisiones y por qué
@@ -29,7 +31,15 @@ Oracle Cloud descartado: el registro lo rechaza el antifraude.
   aporta sus diccionarios (los monolingües tienen copyright → no se incluyen ni se suben a ningún sitio).
 - **El pitch se guarda como SVG estático dentro del campo** `Pitch` → la tarjeta funciona offline y sin JS en Anki.
 - **Audio y API nunca públicos** (Cloudflare Access). No redistribuir audios.
-- AnkiConnect no existe en iOS; por eso URL scheme ahora y servidor después.
+- AnkiConnect no existe en iOS; por eso los dos modos: URL scheme y servidor propio.
+- **Tailscale `serve` en vez de Cloudflare Tunnel** porque no hay dominio propio. Hace falta algo que dé nombre,
+  certificado HTTPS y alcance detrás del router: la PWA va por HTTPS y el navegador bloquea las llamadas a
+  `http://`, así que una IP pelada no vale. Cloudflare Tunnel exigiría comprar dominio.
+  Se usa `serve` (solo dispositivos propios, el iPhone necesita la app de Tailscale activa) y no `funnel`
+  (público) para no exponer el audio: copiar para uso personal está cubierto, publicarlo no.
+- **El audio no se descarga de packs redistribuidos**: el servidor acepta fuentes HTTP configurables
+  (`KOTODEX_AUDIO_URLS`) con caché en disco, que valen para el addon Forvo local, para la API oficial o para un
+  pack propio. La caché se va convirtiendo en el pack.
 
 ## Stack
 Vite 8 + React 19 + TypeScript **5** (fijado: TS 7 dio problemas con `tsc -b`), Dexie 4 + dexie-react-hooks,
@@ -102,7 +112,9 @@ junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173
   en iOS no compensa.
 
 ## Pendiente (por prioridad)
-1. **Desplegar el servidor** (código listo en `server/`): VM + Cloudflare Tunnel, y conseguir un pack de audio.
+1. **Terminar el despliegue**: `tailscale serve` en el portátil, app de Tailscale en el iPhone, desplegar la PWA
+   en Pages y poner ese origen en `KOTODEX_CORS_ORIGINS`. Para el audio, decidir fuente: el addon Forvo local
+   (exige Anki de escritorio abierto) o clave de la API de Forvo.
 2. Preview del audio en la PWA (el servidor ya lo resuelve y lo adjunta).
 3. Importación en Web Worker con progreso; imágenes de structured-content (guardar blobs).
 4. Historial / lista de palabras añadidas.

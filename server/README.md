@@ -1,7 +1,7 @@
 # Servidor de Anki (kotodex)
 
 API que crea notas de Anki para la PWA, con la colección **persistente en disco** para que el sync
-con AnkiWeb sea incremental y no completo. Un solo usuario, detrás de Cloudflare Tunnel.
+con AnkiWeb sea incremental y no completo. Un solo usuario, expuesto con Tailscale Funnel o Cloudflare Tunnel.
 
 Lo que aporta frente al modo AnkiMobile (URL scheme): añade el **audio** como media, no te saca de
 la app y no depende de la longitud de la URL.
@@ -38,8 +38,38 @@ set -a && . ./.env && set +a
 
 ## Desplegar
 
-Los pasos son los mismos en una e2-micro de GCP, un VPS japonés (ConoHa, Sakura) o un mini PC en
-casa. Se asume Debian/Ubuntu.
+### Opción A — portátil con Windows (lo que usamos)
+
+El servidor corre en el propio portátil y se expone con Tailscale. Coste fijo: cero.
+
+```powershell
+cd C:\dev\kotodex\server
+python -m venv venv
+.\venv\Scripts\pip install -r requirements.txt
+copy .env.example .env      # rellenar KOTODEX_TOKEN
+.\deploy\windows\start-kotodex.ps1
+```
+
+Para que arranque solo al iniciar sesión:
+
+```powershell
+.\deploy\windows\install-task.ps1
+Start-ScheduledTask -TaskName kotodex-anki
+```
+
+El registro queda en `server\data\kotodex.log` y `kotodex.err.log`.
+
+**Que el portátil no se duerma**, o el servidor deja de responder:
+
+```powershell
+powercfg /change standby-timeout-ac 0
+powercfg /change hibernate-timeout-ac 0
+```
+
+Y el cierre de tapa: Panel de control → Opciones de energía → *Elegir el comportamiento del cierre de la
+tapa* → "No hacer nada" con el portátil enchufado.
+
+### Opción B — Linux (VM, VPS o mini PC)
 
 ```bash
 sudo adduser --system --group --home /opt/kotodex kotodex
@@ -48,14 +78,14 @@ sudo -u kotodex mkdir -p /opt/kotodex/{data,backups}
 cd /opt/kotodex/server
 sudo -u kotodex python3 -m venv venv
 sudo -u kotodex ./venv/bin/pip install -r requirements.txt
-sudo -u kotodex cp .env.example .env && sudoedit .env   # KOTODEX_TOKEN, CORS, AnkiWeb
+sudo -u kotodex cp .env.example .env && sudoedit .env
 
 sudo cp deploy/kotodex-anki.service /etc/systemd/system/
 sudo systemctl enable --now kotodex-anki
 curl localhost:8000/health
 ```
 
-Con **1 GB de RAM** (la e2-micro va justa) conviene añadir swap antes:
+Con **1 GB de RAM** conviene añadir swap antes:
 
 ```bash
 sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
@@ -63,25 +93,54 @@ sudo mkswap /swapfile && sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 
-Después, una sola vez, crear el tipo de nota:
+### Crear el tipo de nota
+
+Una sola vez, con el servidor ya en marcha (o desde el botón de Ajustes en la PWA):
 
 ```bash
 curl -X POST -H "Authorization: Bearer $KOTODEX_TOKEN" localhost:8000/notetype/ensure
 ```
 
-### Cloudflare Tunnel
+## Exponerlo
 
-El túnel sale de la máquina hacia Cloudflare, así que **no hace falta abrir puertos ni tener IP
-pública entrante**. Ver `deploy/cloudflared-config.yml`.
+El servidor escucha solo en `127.0.0.1`. Hace falta algo que le dé **nombre, certificado HTTPS y
+alcance desde fuera**: la PWA va por HTTPS y el navegador bloquea las llamadas a `http://`, así que
+apuntar a una IP pelada no funciona.
 
-Dos avisos:
+### Tailscale (sin dominio, gratis) — lo que usamos
+
+```powershell
+winget install Tailscale.Tailscale     # o descargar de tailscale.com/download
+tailscale up
+tailscale serve --bg 8000
+tailscale serve status
+```
+
+Te queda una URL fija del tipo `https://kotodex.tu-tailnet.ts.net`, con certificado válido, que es
+la que va en Ajustes de la PWA. Para que el nombre sea bonito, renombra el equipo en la consola de
+Tailscale.
+
+Con `serve` la API **solo se ve desde tus dispositivos**: el iPhone necesita la app de Tailscale
+instalada y activa. A cambio no queda nada expuesto a internet, que es lo que pide el CLAUDE.md
+("Audio y API nunca públicos") y lo que mantiene el audio dentro del uso privado.
+
+Si prefieres no depender de la app en el móvil, `tailscale funnel --bg 8000` hace lo mismo pero
+accesible desde internet, protegido solo por el bearer token.
+
+### Cloudflare Tunnel (si tienes dominio propio)
+
+Ver `deploy/cloudflared-config.yml`. Dos avisos:
 
 - **No pongas Cloudflare Access interactivo en el hostname de la API.** El navegador manda un
   preflight `OPTIONS` sin credenciales y Access lo tumba, así que la PWA deja de funcionar. Quien
   autentica aquí es el bearer token. Si quieres Access igualmente, hay que activarle a mano las
   opciones de CORS en la aplicación de Access.
-- `KOTODEX_CORS_ORIGINS` tiene que llevar el origen exacto de la PWA (`https://…pages.dev` o tu
-  dominio). Sin eso el navegador bloquea las peticiones aunque el servidor responda bien.
+
+### CORS
+
+`KOTODEX_CORS_ORIGINS` lleva el origen de **la PWA** (`https://…pages.dev` o `http://localhost:5173`
+en desarrollo), no el del servidor. Sin eso el navegador bloquea las peticiones aunque el servidor
+responda bien.
 
 ## Cosas que hay que saber
 
@@ -101,10 +160,31 @@ Dos avisos:
 
 ## Audio
 
-`KOTODEX_AUDIO_DIRS` son los directorios del pack y `KOTODEX_AUDIO_PATTERNS` los patrones de
-búsqueda, con `{expression}` y `{reading}`, resueltos como glob y probados en orden. Cada pack
-(JPod101, NHK, Forvo) ordena los ficheros a su manera, así que ajusta los patrones al tuyo en vez
-de tocar el código. Sin directorios configurados, las notas se crean sin audio.
+Dos fuentes, en este orden:
+
+**1. Pack local en disco** (`KOTODEX_AUDIO_DIRS` + `KOTODEX_AUDIO_PATTERNS`). Los patrones llevan
+`{expression}` y `{reading}` y se resuelven como glob, probados en orden. Cada pack (JPod101, NHK,
+Forvo) ordena los ficheros a su manera, así que se ajustan los patrones en vez de tocar el código.
+
+**2. Fuentes HTTP** (`KOTODEX_AUDIO_URLS`), plantillas de URL separadas por `|`. Acepta dos tipos de
+respuesta: el audio directamente, o el JSON de Yomitan `{"audioSources":[{"url":…}]}`, del que baja
+el primero. Lo descargado se guarda en `KOTODEX_AUDIO_CACHE`, así que cada palabra se pide una sola
+vez y la caché acaba siendo tu propio pack.
+
+La búsqueda de audio se hace **fuera del lock** de la colección, para que una fuente lenta no
+bloquee el resto de peticiones. Si no encuentra nada, la nota se crea igual con el campo vacío.
+
+### Opciones concretas
+
+- **El addon «Yomichan Forvo Server»** que ya está instalado en Anki de escritorio:
+  `KOTODEX_AUDIO_URLS=http://localhost:8770/?term={expression}&reading={reading}`.
+  Funciona sin configurar nada más, pero **solo mientras Anki de escritorio esté abierto**. Si está
+  cerrado, la nota sale sin audio. Ese addon saca el audio raspando la web de Forvo, cosa que sus
+  condiciones de uso no permiten; el servidor solo consume lo que la URL le devuelva.
+- **La API oficial de Forvo** con clave: es la vía autorizada y no depende de tener Anki abierto.
+  Se pone la clave dentro de la propia plantilla de URL.
+- **Un pack descargado**: lo más rápido y funciona sin red, pero los packs que circulan son
+  redistribución no autorizada de material comercial.
 
 ## Variables de entorno
 

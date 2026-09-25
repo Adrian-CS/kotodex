@@ -32,6 +32,9 @@ class Settings:
     default_deck: str
     audio_dirs: tuple[Path, ...]
     audio_patterns: tuple[str, ...]
+    audio_urls: tuple[str, ...]
+    audio_cache: Path
+    audio_timeout: float
     ankiweb_username: str
     ankiweb_password: str
     ankiweb_endpoint: str | None
@@ -40,6 +43,10 @@ class Settings:
     @property
     def can_sync(self) -> bool:
         return bool(self.ankiweb_username and self.ankiweb_password)
+
+    @property
+    def has_audio(self) -> bool:
+        return bool(self.audio_dirs or self.audio_urls)
 
 
 def load_settings() -> Settings:
@@ -53,6 +60,7 @@ def load_settings() -> Settings:
         raise ConfigError("KOTODEX_TOKEN es demasiado corto: usa al menos 16 caracteres.")
 
     patterns = _env("KOTODEX_AUDIO_PATTERNS")
+    urls = _env("KOTODEX_AUDIO_URLS")
     return Settings(
         token=token,
         collection_path=Path(_env("KOTODEX_COLLECTION", str(SERVER_DIR / "data" / "collection.anki2"))).expanduser(),
@@ -60,6 +68,9 @@ def load_settings() -> Settings:
         default_deck=_env("KOTODEX_DEFAULT_DECK", "日本語"),
         audio_dirs=_paths("KOTODEX_AUDIO_DIRS"),
         audio_patterns=tuple(p.strip() for p in patterns.split("|") if p.strip()),
+        audio_urls=tuple(u.strip() for u in urls.split("|") if u.strip()),
+        audio_cache=Path(_env("KOTODEX_AUDIO_CACHE", str(SERVER_DIR / "data" / "audio-cache"))).expanduser(),
+        audio_timeout=float(_env("KOTODEX_AUDIO_TIMEOUT", "10") or 10),
         ankiweb_username=_env("ANKIWEB_USERNAME"),
         ankiweb_password=_env("ANKIWEB_PASSWORD"),
         ankiweb_endpoint=_env("ANKIWEB_ENDPOINT") or None,
