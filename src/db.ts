@@ -26,6 +26,8 @@ export interface Term {
   tags: string;
   /** Clases de palabra para el deinflector ("v1", "v5 vt"…). Falta en lo importado antes de tenerlo. */
   rules?: string;
+  /** Palabras del glosario, para buscar de inglés/español a japonés. Solo alfabeto latino. */
+  words?: string[];
   score: number;
   sequence: number;
 }
@@ -84,6 +86,11 @@ class JpDictDB extends Dexie {
     this.version(3).stores({
       searches: null,
       lookups: "&key, at",
+    });
+    // v4 indexa las palabras de los glosarios (índice multivalor). Los términos ya importados no
+    // tienen el campo, así que quedan fuera del índice: hay que reimportar para buscar en ellos.
+    this.version(4).stores({
+      terms: "++id, dict, expression, reading, *words",
     });
   }
 }

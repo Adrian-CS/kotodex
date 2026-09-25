@@ -88,13 +88,24 @@ def _cache_name(expression: str, reading: str) -> str:
     return expression if not reading or reading == expression else f"{expression} - {reading}"
 
 
-def _cached(cache_dir: Path, expression: str, reading: str) -> Path | None:
+def cached_audio(cache_dir: Path, expression: str, reading: str) -> Path | None:
     stem = _cache_name(expression, reading)
     for suffix in AUDIO_SUFFIXES:
         candidate = cache_dir / f"{stem}{suffix}"
         if candidate.is_file():
             return candidate
     return None
+
+
+def guardar_en_cache(cache_dir: Path, expression: str, reading: str, contenido: bytes, suffix: str) -> Path | None:
+    """Deja el audio en la caché con un nombre legible (acaba siendo el de la media de Anki)."""
+    stem = _safe(_cache_name(expression, reading))
+    if not stem or not contenido:
+        return None
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    path = cache_dir / f"{stem}{suffix}"
+    path.write_bytes(contenido)
+    return path
 
 
 def _download(session: requests.Session, url: str, timeout: float) -> tuple[bytes, str] | None:
@@ -150,7 +161,7 @@ def fetch_audio(
     if not stem:
         return None
 
-    cached = _cached(cache_dir, expression, reading)
+    cached = cached_audio(cache_dir, expression, reading)
     if cached:
         return cached
 

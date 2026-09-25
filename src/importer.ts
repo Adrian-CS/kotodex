@@ -1,5 +1,6 @@
 import { unzip } from "fflate";
 import { db, type Dictionary, type Role, type Term, type TermMeta } from "./db";
+import { indexWords } from "./glosses";
 
 export interface ImportProgress { stage: string; done: number; total: number }
 
@@ -49,16 +50,21 @@ export async function importDictionary(file: File, onProgress: (p: ImportProgres
       onProgress({ stage: `Importando «${title}»`, done, total });
       const rows: any[] = JSON.parse(decoder.decode(files[name]));
       delete files[name]; // liberar memoria cuanto antes
-      const terms: Term[] = rows.map(r => ({
-        dict: dictId,
-        expression: r[0],
-        reading: r[1] || r[0],
-        tags: r[2] ?? "",
-        rules: r[3] ?? "",
-        score: Number(r[4]) || 0,
-        glossary: r[5] ?? [],
-        sequence: Number(r[6]) || 0,
-      }));
+      const terms: Term[] = rows.map(r => {
+        const glossary = r[5] ?? [];
+        return {
+          dict: dictId,
+          expression: r[0],
+          reading: r[1] || r[0],
+          tags: r[2] ?? "",
+          rules: r[3] ?? "",
+          score: Number(r[4]) || 0,
+          glossary,
+          sequence: Number(r[6]) || 0,
+          // Índice para buscar por definición. En un monolingüe japonés sale vacío y no ocupa.
+          words: indexWords(glossary),
+        };
+      });
       await db.terms.bulkAdd(terms);
       termCount += terms.length;
       done++;

@@ -1,5 +1,6 @@
 import { db, type Dictionary, type Term } from "./db";
 import { deinflect, matchesRules, rulesMask, suruStem, VS, type Deinflection } from "./deinflect";
+import { esConsultaLatina, tokenizar } from "./glosses";
 import { sensesHtml } from "./structured";
 
 export type DefRole = "ja" | "es" | "en";
@@ -21,6 +22,8 @@ const toHiragana = (s: string) => s.replace(/[ァ-ヶ]/g, c => String.fromCharCo
 const toKatakana = (s: string) => s.replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
 
 const MAX_ENTRIES = 20;
+/** Tope de términos que se traen de una búsqueda por definición antes de agrupar. */
+const MAX_POR_DEFINICION = 500;
 
 export async function search(raw: string): Promise<Entry[]> {
   const q = raw.trim();
@@ -37,6 +40,12 @@ export async function search(raw: string): Promise<Entry[]> {
         .concat(await db.terms.where("reading").anyOf(words).toArray())
         .filter(defDict)
     : [];
+
+  // Consulta en alfabeto latino: se busca dentro de las definiciones, no por expresión.
+  if (esConsultaLatina(q)) {
+    const encontrados = (await porDefinicion(q)).filter(defDict);
+    return armar(encontrados, dicts, new Set<string>(), new Map());
+  }
 
   const variants = [...new Set([q, toHiragana(q), toKatakana(q)])];
   let terms = await lookup(variants);
@@ -82,7 +91,44 @@ export async function search(raw: string): Promise<Entry[]> {
     terms = (await db.terms.where("expression").startsWith(q).limit(200).toArray()).filter(defDict);
   }
 
-  // Agrupar por (expresión, lectura): cada diccionario aporta sus sentidos.
+  return armar(terms, dicts, matched, inflectedByTerm);
+}
+
+/**
+ * Términos cuyo glosario contiene todas las palabras de la consulta.
+ *
+ * Se intersecan las listas de cada palabra, así que "train station" solo devuelve lo que lleva las
+ * dos. El índice lo construye el importador; los diccionarios importados antes de tenerlo no
+ * aparecen aquí hasta que se reimporten.
+ */
+async function porDefinicion(q: string): Promise<Term[]> {
+  const tokens = tokenizar(q);
+  if (!tokens.length) return [];
+
+  let ids: Set<number> | null = null;
+  for (const token of tokens) {
+    const claves = (await db.terms.where("words").equals(token).primaryKeys()) as number[];
+    if (ids === null) {
+      ids = new Set(claves);
+    } else {
+      const conjunto = new Set(claves);
+      const previos: number[] = [...ids];
+      ids = new Set(previos.filter(id => conjunto.has(id)));
+    }
+    if (ids.size === 0) return [];
+  }
+
+  const encontrados = await db.terms.bulkGet([...(ids ?? [])].slice(0, MAX_POR_DEFINICION));
+  return encontrados.filter((t): t is Term => t !== undefined);
+}
+
+/** Agrupa por (expresión, lectura), ordena, añade el pitch y arma las entradas finales. */
+async function armar(
+  terms: Term[],
+  dicts: Map<number, Dictionary>,
+  matched: Set<string>,
+  inflectedByTerm: Map<number, Inflected>,
+): Promise<Entry[]> {
   const groups = new Map<string, { expression: string; reading: string; score: number; terms: Term[]; inflected?: Inflected }>();
   const seen = new Set<number>();
   for (const t of terms) {

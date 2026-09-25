@@ -35,6 +35,8 @@ class Settings:
     audio_urls: tuple[str, ...]
     audio_cache: Path
     audio_timeout: float
+    voicevox_url: str
+    voicevox_speaker: int
     ankiweb_username: str
     ankiweb_password: str
     ankiweb_endpoint: str | None
@@ -54,7 +56,7 @@ class Settings:
 
     @property
     def has_audio(self) -> bool:
-        return bool(self.audio_dirs or self.audio_urls)
+        return bool(self.audio_dirs or self.audio_urls or self.voicevox_url)
 
 
 def load_settings() -> Settings:
@@ -79,6 +81,8 @@ def load_settings() -> Settings:
         audio_urls=tuple(u.strip() for u in urls.split("|") if u.strip()),
         audio_cache=Path(_env("KOTODEX_AUDIO_CACHE", str(SERVER_DIR / "data" / "audio-cache"))).expanduser(),
         audio_timeout=float(_env("KOTODEX_AUDIO_TIMEOUT", "10") or 10),
+        voicevox_url=_env("KOTODEX_VOICEVOX_URL"),
+        voicevox_speaker=int(_env("KOTODEX_VOICEVOX_SPEAKER", "1") or 1),
         ankiweb_username=_env("ANKIWEB_USERNAME"),
         ankiweb_password=_env("ANKIWEB_PASSWORD"),
         ankiweb_endpoint=_env("ANKIWEB_ENDPOINT") or None,

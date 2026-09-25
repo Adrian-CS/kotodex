@@ -262,6 +262,16 @@ vez y la caché acaba siendo tu propio pack.
 La búsqueda de audio se hace **fuera del lock** de la colección, para que una fuente lenta no
 bloquee el resto de peticiones. Si no encuentra nada, la nota se crea igual con el campo vacío.
 
+**3. VOICEVOX** (`KOTODEX_VOICEVOX_URL`), solo si las dos anteriores no tienen la palabra. Es
+sintesis de voz local y gratuita. Dos detalles del port:
+
+- Se sintetiza la **lectura en kana**, no la expresion: asi no hay riesgo de que lea mal un kanji.
+- Se le **impone el acento tonal** de Kanjium (`PitchNum`) sobre lo que el motor deduce solo. Sin
+  eso, el audio contradiria al grafico de pitch de la tarjeta, que es peor que no tener audio.
+  VOICEVOX exige `1 <= accent <= n de moras` y no admite el 0 del 平板; se mapea a la ultima mora,
+  porque aislada una palabra 平板 suena igual que una 尾高 (la diferencia esta en la particula
+  siguiente, que aqui no se sintetiza).
+
 ### Opciones concretas
 
 - **El addon «Yomichan Forvo Server»** que ya está instalado en Anki de escritorio:

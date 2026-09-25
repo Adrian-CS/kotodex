@@ -21,8 +21,9 @@ from anki.errors import DBError
 from anki.notes import NoteFieldsCheckResult
 from anki.sync_pb2 import SyncAuth, SyncCollectionResponse
 
-from .audio import DEFAULT_PATTERNS, fetch_audio, find_audio
+from .audio import DEFAULT_PATTERNS, cached_audio, fetch_audio, find_audio, guardar_en_cache
 from .config import Settings
+from .voicevox import synthesize
 
 # Contrato del tipo de nota: el orden y los nombres están fijados en CLAUDE.md y en notetype/.
 NOTETYPE_NAME = "JP Dict"
@@ -33,6 +34,15 @@ FIELDS: tuple[str, ...] = (
 
 _CHANGES = SyncCollectionResponse.ChangesRequired
 _FULL = {_CHANGES.FULL_SYNC, _CHANGES.FULL_DOWNLOAD, _CHANGES.FULL_UPLOAD}
+
+
+def _primer_downstep(pitchnum: str) -> int | None:
+    """PitchNum puede traer varias acentuaciones ("0,2"); para sintetizar se usa la primera."""
+    for parte in pitchnum.split(","):
+        parte = parte.strip()
+        if parte.lstrip("-").isdigit():
+            return int(parte)
+    return None
 
 
 def _escapar(texto: str) -> str:
@@ -243,14 +253,37 @@ class AnkiService:
             }
 
     def _resolve_audio(self, values: dict[str, str]) -> Path | None:
-        """Pack local primero (instantáneo y sin red); si no hay, fuentes HTTP con caché."""
+        """
+        Por orden: pack local (instantáneo), fuentes HTTP (con caché) y, como último recurso,
+        síntesis con VOICEVOX. Voz humana antes que sintética siempre que se pueda.
+        """
         s = self.settings
         expression = values.get("Expression", "")
         reading = values.get("Reading", "")
-        return (
+
+        encontrado = (
             find_audio(s.audio_dirs, s.audio_patterns or DEFAULT_PATTERNS, expression, reading)
             or fetch_audio(s.audio_urls, s.audio_cache, expression, reading, s.audio_timeout)
         )
+        if encontrado or not s.voicevox_url:
+            return encontrado
+
+        en_cache = cached_audio(s.audio_cache, expression, reading)
+        if en_cache:
+            return en_cache
+
+        # Se sintetiza la LECTURA en kana: así no hay riesgo de que lea mal un kanji. El acento se
+        # le impone desde PitchNum, que viene de Kanjium, para que el audio no contradiga al gráfico.
+        wav = synthesize(
+            s.voicevox_url,
+            s.voicevox_speaker,
+            reading or expression,
+            _primer_downstep(values.get("PitchNum", "")),
+            s.audio_timeout,
+        )
+        if wav is None:
+            return None
+        return guardar_en_cache(s.audio_cache, expression, reading, wav, ".wav")
 
     # ---- duplicados ----------------------------------------------------
 
