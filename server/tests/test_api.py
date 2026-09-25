@@ -135,3 +135,35 @@ def test_check_texto_raro_no_rompe(client):
 
 def test_check_sin_palabras(client):
     assert client.post("/notes/check", json={"words": []}).json()["results"] == []
+
+
+def test_error_traducido_al_ingles(client):
+    r = client.post("/notes", json={"fields": {"Expression": "  "}}, headers={"Accept-Language": "en"})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Expression is empty."
+
+
+def test_error_traducido_al_japones(client):
+    r = client.post("/notes", json={"fields": {"Expression": "  "}}, headers={"Accept-Language": "ja-JP"})
+    assert r.json()["detail"] == "Expression が空です。"
+
+
+def test_idioma_desconocido_cae_al_castellano(client):
+    r = client.post("/notes", json={"fields": {"Expression": "  "}}, headers={"Accept-Language": "de-DE"})
+    assert r.json()["detail"] == "Expression está vacío."
+
+
+def test_error_con_parametros_traducido(client):
+    r = client.post(
+        "/notes",
+        json={"fields": {"Expression": "箸", "Reading": "はし"}, "deck": "No existe", "create_deck": False},
+        headers={"Accept-Language": "en"},
+    )
+    assert r.status_code == 404
+    assert r.json()["detail"] == "The deck “No existe” does not exist."
+
+
+def test_token_invalido_traducido(client):
+    r = client.get("/decks", headers={"Authorization": "Bearer otro", "Accept-Language": "ja"})
+    assert r.status_code == 401
+    assert "トークン" in r.json()["detail"]

@@ -3,6 +3,7 @@
 
 import type { NoteFields } from "./anki";
 import type { Settings } from "./settings";
+import { idiomaDelSistema } from "./i18n";
 
 export interface ServerHealth {
   status: string;
@@ -57,6 +58,8 @@ async function call<T>(s: Settings, path: string, body?: unknown): Promise<T> {
       method: body === undefined ? "GET" : "POST",
       headers: {
         Authorization: `Bearer ${s.serverToken}`,
+        // Para que los errores del servidor lleguen en el idioma de la interfaz.
+        "Accept-Language": s.idioma === "auto" ? idiomaDelSistema() : s.idioma,
         ...(body === undefined ? {} : { "Content-Type": "application/json" }),
       },
       body: body === undefined ? undefined : JSON.stringify(body),

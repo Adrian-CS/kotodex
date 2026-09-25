@@ -121,6 +121,18 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
 - glossary item: string | `{type:"text"}` | `{type:"structured-content", content}` | `{type:"image"}`
 - term_meta_bank: `[expression, "pitch", {reading, pitches:[{position:number, …}]}]` (también `freq`, se ignora)
 
+## Idiomas de la interfaz
+`src/i18n.ts` — español, inglés y japonés. El ajuste vive en `Settings.idioma` (`"auto"` = el del
+sistema). Tres decisiones:
+- Las razones del deinflector japonés se guardan en la tabla con la **clave original de Yomitan**
+  (`past`, `-te`) y se traducen al enseñarlas. Las 450 coreanas NO se traducen: ya son terminología
+  gramatical coreana y traducirlas las haría menos útiles.
+- Los errores del servidor llegan traducidos: `ServiceError` lleva una CLAVE y sus parámetros
+  (`server/app/textos.py`), y se traduce al responder con la cabecera `Accept-Language` que manda
+  la PWA. Sin eso tendrías la interfaz en japonés y los errores en castellano.
+- `main.tsx` comprueba si hay versión nueva cada hora y al volver a primer plano. Sin eso, una PWA
+  en la pantalla de inicio de iOS puede pasar días sin enterarse de un despliegue.
+
 ## Convenciones
 - Textos de la UI en español, sentence case, verbos claros ("Añadir a Anki", "Importar .zip"). Errores dicen qué pasó y qué hacer.
 - Comentarios del código en español.

@@ -5,6 +5,7 @@ import { recordSearch } from "../history";
 import { search, type Entry } from "../search";
 import { checkNotes, type WordCheck } from "../server";
 import type { Settings } from "../settings";
+import type { Idioma, T } from "../i18n";
 import { EntryCard } from "./EntryCard";
 
 /** Diccionarios que han aportado definiciones, en el orden en que salen (o sea, por prioridad). */
@@ -24,9 +25,11 @@ interface Props {
   settings: Settings;
   setSettings: (s: Settings) => void;
   onOpenDicts: () => void;
+  t: T;
+  idioma: Idioma;
 }
 
-export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts }: Props) {
+export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts, t, idioma }: Props) {
   const [results, setResults] = useState<Entry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dupes, setDupes] = useState<Map<string, WordCheck>>(new Map());
@@ -91,8 +94,8 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
           type="search"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder="単語を検索"
-          aria-label="Buscar palabra"
+          placeholder={t("search.placeholder")}
+          aria-label={t("search.aria")}
           lang="ja"
           enterKeyHint="search"
           autoCapitalize="off"
@@ -103,21 +106,21 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
 
       {dictCount === 0 && (
         <div className="empty">
-          <p>Todavía no hay diccionarios. Importa los .zip de Yomitan que uses (JMdict, un monolingüe, pitch…).</p>
-          <button className="primary" onClick={onOpenDicts}>Importar diccionarios</button>
+          <p>{t("search.noDicts")}</p>
+          <button className="primary" onClick={onOpenDicts}>{t("search.import")}</button>
         </div>
       )}
 
-      {error && <p className="error">No se pudo buscar: {error}</p>}
+      {error && <p className="error">{t("search.failed", { error })}</p>}
 
       {results && results.length === 0 && dictCount !== 0 && (
-        <p className="empty">Sin resultados para «{query.trim()}». Prueba con la forma de diccionario o revisa qué diccionarios tienes activos.</p>
+        <p className="empty">{t("search.noResults", { query: query.trim() })}</p>
       )}
 
       {chips.length > 1 && (
-        <div className="filtros" role="group" aria-label="Filtrar por diccionario">
+        <div className="filtros" role="group" aria-label={t("search.filterGroup")}>
           <button className={`chip${filtro === null ? " activo" : ""}`} onClick={() => setFiltro(null)}>
-            Todos
+            {t("search.filterAll")}
           </button>
           {chips.map(nombre => (
             <button
@@ -139,6 +142,8 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
           settings={settings}
           setSettings={setSettings}
           inCollection={dupes.get(entryKey(e.expression, e.reading))}
+          t={t}
+          idioma={idioma}
         />
       ))}
     </div>

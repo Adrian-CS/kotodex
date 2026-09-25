@@ -6,12 +6,9 @@ import type { DefRole, Entry } from "../search";
 import type { Settings } from "../settings";
 import { ankiMobileUrl, buildFields } from "../anki";
 import { addNote, ServerError, type WordCheck } from "../server";
+import { razonDeinflexion, type Idioma, type T } from "../i18n";
 
-const ETIQUETAS: Record<DefRole, { label: string; lang: string }> = {
-  ja: { label: "国語", lang: "ja" },
-  es: { label: "Español", lang: "es" },
-  en: { label: "English", lang: "en" },
-};
+const IDIOMA_DE: Record<DefRole, string> = { ja: "ja", es: "es", en: "en" };
 
 type Status =
   | { kind: "idle" }
@@ -25,9 +22,11 @@ interface Props {
   setSettings: (s: Settings) => void;
   /** Qué hay ya en la colección con esta palabra. undefined = todavía sin comprobar. */
   inCollection?: WordCheck;
+  t: T;
+  idioma: Idioma;
 }
 
-export function EntryCard({ entry, settings, setSettings, inCollection }: Props) {
+export function EntryCard({ entry, settings, setSettings, inCollection, t, idioma }: Props) {
   const key = entryKey(entry.expression, entry.reading);
   const added = useLiveQuery(() => db.added.get(key), [key]);
   const deck = settings.decks.includes(settings.lastDeck) ? settings.lastDeck : settings.decks[0] ?? "";
@@ -50,7 +49,9 @@ export function EntryCard({ entry, settings, setSettings, inCollection }: Props)
       await db.added.put({ key, deck, at: Date.now() });
       setStatus({
         kind: "done",
-        text: note.audio ? `Añadida a ${note.deck} con audio` : `Añadida a ${note.deck}, sin audio`,
+        text: note.audio
+          ? t("entry.addedWithAudio", { deck: note.deck })
+          : t("entry.addedNoAudio", { deck: note.deck }),
       });
     } catch (e) {
       const error = e as ServerError;
@@ -59,14 +60,15 @@ export function EntryCard({ entry, settings, setSettings, inCollection }: Props)
   }
 
   const sending = status.kind === "sending";
-  const label = sending ? "Añadiendo…" : added ? "Añadir otra vez" : "Añadir a Anki";
+  const label = sending ? t("entry.adding") : added ? t("entry.addAgain") : t("entry.add");
 
   return (
     <article className="entry">
       <header className="entry-head">
         {entry.inflected && (
           <p className="entry-inflected">
-            <span lang="ja">{entry.inflected.form}</span> · {entry.inflected.reasons.join(" · ")}
+            <span lang="ja">{entry.inflected.form}</span>{" · "}
+            {entry.inflected.reasons.map(r => razonDeinflexion(r, idioma)).join(" · ")}
           </p>
         )}
         {showReading && <div className="entry-reading" lang="ja">{entry.reading}</div>}
@@ -78,8 +80,8 @@ export function EntryCard({ entry, settings, setSettings, inCollection }: Props)
       )}
 
       {entry.sections.map(role => (
-        <section key={role} className={`defs defs-${role}`} lang={ETIQUETAS[role].lang}>
-          <h3 className="defs-label">{ETIQUETAS[role].label}</h3>
+        <section key={role} className={`defs defs-${role}`} lang={IDIOMA_DE[role]}>
+          <h3 className="defs-label">{t(`entry.${role}` as "entry.ja")}</h3>
           {entry.defs[role].map(b => (
             <div key={b.dictTitle} className="dict-block">
               {entry.defs[role].length > 1 && <div className="dict-name">{b.dictTitle}</div>}
@@ -91,11 +93,13 @@ export function EntryCard({ entry, settings, setSettings, inCollection }: Props)
 
       {inCollection !== undefined && inCollection.notes > 0 && (
         <p className="dup-note">
-          Ya en tu colección: {inCollection.notes} {inCollection.notes === 1 ? "nota" : "notas"}
+          {inCollection.notes === 1
+            ? t("entry.inCollectionOne")
+            : t("entry.inCollectionMany", { count: inCollection.notes })}
           {" · "}
           {inCollection.studied === 0
-            ? "ninguna estudiada todavía"
-            : `${inCollection.studied} en estudio`}
+            ? t("entry.noneStudied")
+            : t("entry.studied", { count: inCollection.studied })}
         </p>
       )}
 
@@ -103,7 +107,7 @@ export function EntryCard({ entry, settings, setSettings, inCollection }: Props)
         <select
           value={deck}
           onChange={e => setSettings({ ...settings, lastDeck: e.target.value })}
-          aria-label="Mazo"
+          aria-label={t("entry.deck")}
         >
           {settings.decks.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
@@ -119,12 +123,12 @@ export function EntryCard({ entry, settings, setSettings, inCollection }: Props)
           {status.duplicate && (
             <>
               {" "}
-              <button className="text" onClick={() => addToAnki(true)}>Añadir igualmente</button>
+              <button className="text" onClick={() => addToAnki(true)}>{t("entry.addAnyway")}</button>
             </>
           )}
         </p>
       )}
-      {status.kind === "idle" && added && <p className="added-note">Añadida a {added.deck}</p>}
+      {status.kind === "idle" && added && <p className="added-note">{t("entry.addedTo", { deck: added.deck })}</p>}
     </article>
   );
 }

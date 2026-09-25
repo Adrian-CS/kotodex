@@ -1,3 +1,5 @@
+import type { Idioma } from "./i18n";
+
 /** Cómo se añaden las tarjetas: abriendo AnkiMobile o mandándolas al servidor propio. */
 export type AnkiMode = "ankimobile" | "server";
 
@@ -10,6 +12,8 @@ export interface Settings {
   mode: AnkiMode;
   serverUrl: string;
   serverToken: string;
+  /** "auto" = el del sistema. */
+  idioma: Idioma | "auto";
 }
 
 const KEY = "jp-dict-settings";
@@ -22,6 +26,7 @@ const DEFAULTS: Settings = {
   mode: "ankimobile",
   serverUrl: "",
   serverToken: "",
+  idioma: "auto",
 };
 
 export function loadSettings(): Settings {

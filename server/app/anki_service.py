@@ -53,11 +53,18 @@ def _escapar(texto: str) -> str:
 
 
 class ServiceError(RuntimeError):
-    """Error con un mensaje pensado para que lo lea Adrian en la PWA."""
+    """
+    Error que acaba en la pantalla del usuario.
 
-    def __init__(self, message: str, status: int = 400):
-        super().__init__(message)
+    Guarda una CLAVE y sus parámetros en vez del texto: la traducción se hace al responder, que es
+    cuando se sabe el idioma que pide la petición (ver app/textos.py).
+    """
+
+    def __init__(self, clave: str, status: int = 400, **params: object):
+        super().__init__(clave)
+        self.clave = clave
         self.status = status
+        self.params = params
 
 
 class AnkiService:
@@ -75,11 +82,7 @@ class AnkiService:
         try:
             self._col = Collection(str(path))
         except DBError as e:
-            raise ServiceError(
-                f"No se pudo abrir la colección en {path}: {e}. "
-                "Suele ser que hay otro proceso usándola (¿un segundo worker de uvicorn?).",
-                status=500,
-            ) from e
+            raise ServiceError("coleccion_no_abre", 500, ruta=str(path), error=str(e)) from e
 
     def close(self) -> None:
         with self._lock:
@@ -90,7 +93,7 @@ class AnkiService:
     @property
     def col(self) -> Collection:
         if self._col is None:
-            raise ServiceError("La colección no está abierta.", status=503)
+            raise ServiceError("coleccion_cerrada", 503)
         return self._col
 
     # ---- mazos ---------------------------------------------------------
@@ -109,11 +112,7 @@ class AnkiService:
             back = (directory / "back.html").read_text(encoding="utf-8")
             css = (directory / "style.css").read_text(encoding="utf-8")
         except OSError as e:
-            raise ServiceError(
-                f"No se pudieron leer las plantillas en {directory}: {e}. "
-                "Copia la carpeta notetype/ del repo o apunta KOTODEX_NOTETYPE_DIR a ella.",
-                status=500,
-            ) from e
+            raise ServiceError("plantillas_no_leen", 500, ruta=str(directory), error=str(e)) from e
         return front, back, css
 
     def ensure_notetype(self, *, force: bool = False) -> dict:
@@ -146,10 +145,7 @@ class AnkiService:
 
             if missing and not force:
                 raise ServiceError(
-                    f"El tipo de nota «{NOTETYPE_NAME}» ya existe pero le faltan campos: "
-                    f"{', '.join(missing)}. Añadirlos obliga a un full sync con AnkiWeb. "
-                    "Repite con force=true si quieres hacerlo (sincroniza todo antes).",
-                    status=409,
+                    "faltan_campos", 409, notetype=NOTETYPE_NAME, campos=", ".join(missing)
                 )
             for name in missing:
                 mm.add_field(existing, mm.new_field(name))
@@ -195,9 +191,9 @@ class AnkiService:
     ) -> dict:
         unknown = sorted(set(fields) - set(FIELDS))
         if unknown:
-            raise ServiceError(f"Campos que no existen en «{NOTETYPE_NAME}»: {', '.join(unknown)}.")
+            raise ServiceError("campos_desconocidos", notetype=NOTETYPE_NAME, campos=", ".join(unknown))
         if not fields.get("Expression", "").strip():
-            raise ServiceError("Expression está vacío.")
+            raise ServiceError("expression_vacia")
 
         deck = deck.strip() or self.settings.default_deck
         values = dict(fields)
@@ -211,16 +207,12 @@ class AnkiService:
         with self._lock:
             notetype = self.col.models.by_name(NOTETYPE_NAME)
             if notetype is None:
-                raise ServiceError(
-                    f"El tipo de nota «{NOTETYPE_NAME}» no existe todavía. Llama antes a "
-                    "POST /notetype/ensure.",
-                    status=409,
-                )
+                raise ServiceError("sin_tipo_de_nota", 409, notetype=NOTETYPE_NAME)
 
             deck_id = self.col.decks.id_for_name(deck)
             if deck_id is None:
                 if not create_deck:
-                    raise ServiceError(f"El mazo «{deck}» no existe.", status=404)
+                    raise ServiceError("mazo_no_existe", 404, mazo=deck)
                 deck_id = self.col.decks.id(deck)
 
             audio_file = None
@@ -235,14 +227,10 @@ class AnkiService:
 
             check = note.fields_check()
             if check == NoteFieldsCheckResult.EMPTY:
-                raise ServiceError("La nota se queda vacía con esos campos.")
+                raise ServiceError("nota_vacia")
             duplicate = check == NoteFieldsCheckResult.DUPLICATE
             if duplicate and not allow_duplicate:
-                raise ServiceError(
-                    f"«{values['Expression']}» ya está en la colección. "
-                    "Repite con allow_duplicate=true si quieres añadirla igualmente.",
-                    status=409,
-                )
+                raise ServiceError("duplicada", 409, palabra=values["Expression"])
 
             self.col.add_note(note, deck_id)
             return {
@@ -327,14 +315,11 @@ class AnkiService:
             return self._auth
         s = self.settings
         if not s.can_sync:
-            raise ServiceError(
-                "Faltan ANKIWEB_USERNAME y ANKIWEB_PASSWORD en el entorno del servidor.",
-                status=409,
-            )
+            raise ServiceError("sin_credenciales", 409)
         try:
             self._auth = self.col.sync_login(s.ankiweb_username, s.ankiweb_password, s.ankiweb_endpoint)
         except Exception as e:
-            raise ServiceError(f"AnkiWeb rechazó el login: {e}", status=502) from e
+            raise ServiceError("login_rechazado", 502, error=str(e)) from e
         return self._auth
 
     def sync(self, *, wait_media: bool = True, media_timeout: float = 120.0) -> dict:
@@ -344,7 +329,7 @@ class AnkiService:
                 out = self.col.sync_collection(auth, True)
             except Exception as e:
                 self._auth = None  # que el próximo intento vuelva a hacer login
-                raise ServiceError(f"Falló la sincronización con AnkiWeb: {e}", status=502) from e
+                raise ServiceError("sync_fallido", 502, error=str(e)) from e
 
             if out.new_endpoint:
                 self._auth = SyncAuth(hkey=auth.hkey, endpoint=out.new_endpoint)
@@ -352,11 +337,7 @@ class AnkiService:
             required = _CHANGES.Name(out.required)
             if out.required in _FULL:
                 # Un full sync pisa una de las dos colecciones entera: eso se decide a mano.
-                raise ServiceError(
-                    f"AnkiWeb pide una sincronización completa ({required}). No se hace desde aquí: "
-                    "resuélvela en el ordenador o en AnkiMobile y vuelve a intentarlo.",
-                    status=409,
-                )
+                raise ServiceError("sync_completo", 409, estado=required)
 
             media = self._wait_media(media_timeout) if wait_media else "en curso"
             return {

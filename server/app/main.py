@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 from .anki_service import FIELDS, NOTETYPE_NAME, AnkiService, ServiceError
 from .autosync import AutoSync
 from .config import Settings, load_settings
+from .textos import idioma_de, traducir
 
 settings: Settings = load_settings()
 service = AnkiService(settings)
@@ -49,21 +50,32 @@ if settings.cors_origins:
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Authorization", "Content-Type", "Accept-Language"],
         max_age=86400,
     )
 
 
 @app.exception_handler(ServiceError)
-async def service_error_handler(_: Request, exc: ServiceError) -> JSONResponse:
-    return JSONResponse(status_code=exc.status, content={"detail": str(exc)})
+async def service_error_handler(request: Request, exc: ServiceError) -> JSONResponse:
+    # El idioma se decide aquí: es donde se tiene la cabecera de la petición.
+    idioma = idioma_de(request.headers.get("accept-language"))
+    return JSONResponse(
+        status_code=exc.status,
+        content={"detail": traducir(exc.clave, idioma, exc.params)},
+    )
 
 
-async def require_token(authorization: str = Header(default="")) -> None:
+async def require_token(
+    authorization: str = Header(default=""),
+    accept_language: str = Header(default=""),
+) -> None:
     """Token propio en la cabecera Authorization. Cloudflare Access va por delante, no en vez de."""
     scheme, _, value = authorization.partition(" ")
     if scheme.lower() != "bearer" or not secrets.compare_digest(value, settings.token):
-        raise HTTPException(status_code=401, detail="Token inválido o ausente.")
+        raise HTTPException(
+            status_code=401,
+            detail=traducir("token_invalido", idioma_de(accept_language), {}),
+        )
 
 
 Auth = Depends(require_token)

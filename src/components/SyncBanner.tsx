@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { health, sync } from "../server";
 import type { Settings } from "../settings";
+import type { T } from "../i18n";
 
-interface Props { settings: Settings }
+interface Props { settings: Settings; t: T }
 
 /**
  * Banda de aviso cuando la última sincronización automática falló.
@@ -11,7 +12,7 @@ interface Props { settings: Settings }
  * el momento que importa: al abrir el diccionario, antes de ponerse a añadir tarjetas que se van a
  * quedar atascadas en el servidor.
  */
-export function SyncBanner({ settings }: Props) {
+export function SyncBanner({ settings, t }: Props) {
   const [aviso, setAviso] = useState<string | null>(null);
   const [oculto, setOculto] = useState(false);
   const [reintentando, setReintentando] = useState(false);
@@ -50,17 +51,14 @@ export function SyncBanner({ settings }: Props) {
   return (
     <div className="aviso-sync" role="status">
       <p>
-        <strong>La sincronización con Anki necesita que intervengas.</strong> {aviso}
+        <strong>{t("sync.title")}</strong> {aviso}
       </p>
-      <p className="aviso-detalle">
-        Puedes seguir añadiendo tarjetas: se guardan en el servidor y subirán cuando se arregle.
-        Sincroniza Anki en el ordenador y vuelve a intentarlo.
-      </p>
+      <p className="aviso-detalle">{t("sync.detail")}</p>
       <div className="aviso-acciones">
         <button onClick={reintentar} disabled={reintentando}>
-          {reintentando ? "Sincronizando…" : "Reintentar"}
+          {reintentando ? t("sync.retrying") : t("sync.retry")}
         </button>
-        <button className="text" onClick={() => setOculto(true)}>Ocultar</button>
+        <button className="text" onClick={() => setOculto(true)}>{t("sync.hide")}</button>
       </div>
     </div>
   );

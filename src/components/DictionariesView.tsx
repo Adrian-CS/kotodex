@@ -2,18 +2,21 @@ import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Role } from "../db";
 import { deleteDictionary, importDictionary, type ImportProgress } from "../importer";
+import type { T } from "../i18n";
 
-const ROLES: { value: Role; label: string }[] = [
-  { value: "ja", label: "Definición en japonés" },
-  { value: "es", label: "Definición en español" },
-  { value: "en", label: "Definición en inglés" },
-  { value: "pitch", label: "Pitch accent" },
-  { value: "other", label: "No usar" },
+const ROLES: { value: Role; clave: "role.ja" }[] = [
+  { value: "ja", clave: "role.ja" },
+  { value: "es", clave: "role.es" as "role.ja" },
+  { value: "en", clave: "role.en" as "role.ja" },
+  { value: "pitch", clave: "role.pitch" as "role.ja" },
+  { value: "other", clave: "role.other" as "role.ja" },
 ];
 
 const formatMB = (bytes?: number) => (bytes == null ? "—" : `${(bytes / 1024 / 1024).toFixed(0)} MB`);
 
-export function DictionariesView() {
+interface Props { t: T; locale: string }
+
+export function DictionariesView({ t, locale }: Props) {
   const dicts = useLiveQuery(
     async () => {
       const todos = await db.dictionaries.toArray();
@@ -45,12 +48,12 @@ export function DictionariesView() {
   }
 
   async function onDelete(id: number, title: string) {
-    if (!confirm(`¿Borrar «${title}»? Tendrás que volver a importar el .zip para recuperarlo.`)) return;
+    if (!confirm(t("dicts.confirmDelete", { title }))) return;
     setError(null);
-    setBorrando(`Borrando «${title}»…`);
+    setBorrando(t("dicts.deleting", { title }));
     try {
       // Un diccionario grande tarda: se va enseñando cuánto lleva.
-      await deleteDictionary(id, n => setBorrando(`Borrando «${title}»: ${n.toLocaleString("es")} entradas`));
+      await deleteDictionary(id, n => setBorrando(t("dicts.deletingCount", { title, count: n.toLocaleString(locale) })));
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
@@ -74,14 +77,13 @@ export function DictionariesView() {
 
   return (
     <div className="page">
-      <h1>Diccionarios</h1>
+      <h1>{t("dicts.title")}</h1>
       <p className="hint">
-        Importa diccionarios en formato Yomitan (.zip). Se guardan solo en este dispositivo.
-        El orden manda: las definiciones salen de arriba abajo, tanto al buscar como en la tarjeta.
+        {t("dicts.hint")}
       </p>
 
       <label className={`primary file-button${busy ? " disabled" : ""}`}>
-        {busy ? "Importando…" : "Importar .zip"}
+        {busy ? t("dicts.importing") : t("dicts.import")}
         <input type="file" accept=".zip,application/zip" multiple disabled={busy} onChange={e => { onFiles(e.target.files); e.target.value = ""; }} hidden />
       </label>
 
@@ -99,36 +101,36 @@ export function DictionariesView() {
           <li key={d.id} className="dict-item">
             <div className="dict-title">
               <span className="dict-orden">
-                <button className="text" disabled={i === 0} aria-label={`Subir ${d.title}`}
+                <button className="text" disabled={i === 0} aria-label={t("dicts.up", { title: d.title })}
                   onClick={() => mover(i, -1)}>↑</button>
-                <button className="text" disabled={i === (dicts?.length ?? 0) - 1} aria-label={`Bajar ${d.title}`}
+                <button className="text" disabled={i === (dicts?.length ?? 0) - 1} aria-label={t("dicts.down", { title: d.title })}
                   onClick={() => mover(i, 1)}>↓</button>
               </span>
               {d.title}
             </div>
             <div className="dict-meta">
               {[
-                d.terms > 0 && `${d.terms.toLocaleString("es")} términos`,
+                d.terms > 0 && t("dicts.terms", { count: d.terms.toLocaleString(locale) }),
                 // Saber si un diccionario trae pitch es lo primero que se mira cuando no aparece.
-                d.pitches ? `${d.pitches.toLocaleString("es")} con pitch` : null,
-                d.metas > 0 && `${d.metas.toLocaleString("es")} datos meta`,
+                d.pitches ? t("dicts.pitches", { count: d.pitches.toLocaleString(locale) }) : null,
+                d.metas > 0 && t("dicts.metas", { count: d.metas.toLocaleString(locale) }),
               ].filter(Boolean).join(" · ")}
             </div>
             <div className="dict-controls">
-              <select value={d.role} onChange={e => db.dictionaries.update(d.id!, { role: e.target.value as Role })} aria-label={`Uso de ${d.title}`}>
-                {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+              <select value={d.role} onChange={e => db.dictionaries.update(d.id!, { role: e.target.value as Role })} aria-label={t("dicts.roleOf", { title: d.title })}>
+                {ROLES.map(r => <option key={r.value} value={r.value}>{t(r.clave)}</option>)}
               </select>
               <label className="toggle">
                 <input type="checkbox" checked={d.enabled} onChange={e => db.dictionaries.update(d.id!, { enabled: e.target.checked })} />
-                Activo
+                {t("dicts.active")}
               </label>
-              <button className="text danger" disabled={busy} onClick={() => onDelete(d.id!, d.title)}>Borrar</button>
+              <button className="text danger" disabled={busy} onClick={() => onDelete(d.id!, d.title)}>{t("dicts.delete")}</button>
             </div>
           </li>
         ))}
       </ul>
 
-      <p className="hint">Espacio usado: {formatMB(usage.usage)} de {formatMB(usage.quota)}. Guarda los .zip en Archivos por si iOS borra los datos.</p>
+      <p className="hint">{t("dicts.storage", { used: formatMB(usage.usage), quota: formatMB(usage.quota) })}</p>
     </div>
   );
 }
