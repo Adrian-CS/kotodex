@@ -10,6 +10,12 @@ export interface ServerHealth {
   fields: string[];
   audio: boolean;
   sync: boolean;
+  autosync?: {
+    cada_horas: number;
+    proximo_en_minutos: number | null;
+    /** Empieza por "error" si la última sincronización automática falló. */
+    ultimo_resultado: string;
+  };
 }
 
 export interface AddedNote {

@@ -30,6 +30,8 @@ const MAX_ENTRIES = 20;
 /** Huecos reservados a los resultados encontrados por definición en otro idioma. Sin esto, buscar
  *  人 llena la lista con las decenas de entradas japonesas exactas y 사람 no llega a salir. */
 const CUOTA_CRUZADA = 5;
+/** Huecos garantizados a cada diccionario cuando se busca por definición. */
+const MIN_POR_DICCIONARIO = 3;
 /**
  * Tope de términos que se traen de una búsqueda por definición antes de ordenar por relevancia.
  *
@@ -39,7 +41,11 @@ const CUOTA_CRUZADA = 5;
  */
 const MAX_POR_DEFINICION = 4000;
 
-export async function search(raw: string): Promise<Entry[]> {
+/**
+ * @param soloDiccionario Título de un diccionario para buscar solo en él. El pitch sigue saliendo
+ *   de todos: filtrar por definiciones no debería quitar el gráfico de acentos.
+ */
+export async function search(raw: string, soloDiccionario?: string | null): Promise<Entry[]> {
   const q = raw.trim();
   if (!q) return [];
 
@@ -47,7 +53,8 @@ export async function search(raw: string): Promise<Entry[]> {
     (await db.dictionaries.toArray()).filter(d => d.enabled).map(d => [d.id!, d]));
   const defDict = (t: Term) => {
     const d = dicts.get(t.dict);
-    return d && (d.role === "ja" || d.role === "es" || d.role === "en") ? d : undefined;
+    if (!d || (soloDiccionario && d.title !== soloDiccionario)) return undefined;
+    return d.role === "ja" || d.role === "es" || d.role === "en" ? d : undefined;
   };
   const lookup = async (words: string[]): Promise<Term[]> => words.length
     ? (await db.terms.where("expression").anyOf(words).toArray())
@@ -58,7 +65,7 @@ export async function search(raw: string): Promise<Entry[]> {
   // Consulta en alfabeto latino: se busca dentro de las definiciones, no por expresión.
   if (esConsultaLatina(q)) {
     const encontrados = (await porDefinicion(q)).filter(defDict);
-    return armar(encontrados, dicts, new Set<string>(), new Map(), relevancia(q));
+    return armar(encontrados, dicts, new Set<string>(), new Map(), relevancia(q), undefined, undefined, true);
   }
 
   const variants = [...new Set([q, toHiragana(q), toKatakana(q)])];
@@ -215,14 +222,26 @@ function relevanciaJaponesa(q: string): (t: Term) => number {
   };
 }
 
+/**
+ * Cuánto encaja una definición con lo que se buscó, de 0 (mejor) a 3.
+ *
+ * Se compara por PALABRAS, no por texto literal, y con el mismo tokenizador que construye el
+ * índice. Eso arregla dos cosas de golpe: «to eat» encuentra los sentidos escritos «eat», y los
+ * diccionarios que pegan la cabecera al primer sentido («먹다 eat» en KRDICT) dejan de quedarse
+ * fuera, porque el coreano no es alfabeto latino y el tokenizador lo descarta solo.
+ */
 function relevancia(q: string): (t: Term) => number {
-  const buscado = normalizar(q).replace(/\s+/g, " ").trim();
+  const buscados = tokenizar(q);
+  const clave = buscados.join(" ");
   return (t: Term) => {
+    if (!buscados.length) return 3;
     let mejor = 3;
-    for (const sentido of glossTexts(t.glossary)) {
-      if (sentido === buscado) return 0;                                  // la definición es justo eso
-      if (sentido.startsWith(buscado + " ")) mejor = Math.min(mejor, 1);   // empieza por ahí
-      else if (sentido.includes(buscado)) mejor = Math.min(mejor, 2);      // solo lo menciona
+    for (const seg of segmentosGlosario(t.glossary)) {
+      const palabras = tokenizar(seg);
+      if (!palabras.length) continue;
+      if (palabras.join(" ") === clave) return 0;                              // el sentido ES eso
+      if (buscados.every(b => palabras.includes(b))) mejor = Math.min(mejor, 1); // está entero
+      else if (mejor > 2 && buscados.some(b => palabras.includes(b))) mejor = 2; // solo una parte
     }
     return mejor;
   };
@@ -237,15 +256,18 @@ async function armar(
   relevanciaDe?: (t: Term) => number,
   cruzados?: Set<number>,
   relevanciaCruzada?: (t: Term) => number,
+  repartir = false,
 ): Promise<Entry[]> {
-  const groups = new Map<string, { expression: string; reading: string; score: number; rel: number; cruzado: boolean; terms: Term[]; inflected?: Inflected }>();
+  const groups = new Map<string, { expression: string; reading: string; score: number; rel: number; cruzado: boolean; prioridad: number; terms: Term[]; inflected?: Inflected }>();
   const seen = new Set<number>();
   for (const t of terms) {
     if (seen.has(t.id!)) continue;
     seen.add(t.id!);
     const key = `${t.expression}\u0000${t.reading}`;
-    const g = groups.get(key) ?? { expression: t.expression, reading: t.reading, score: -Infinity, rel: Number.MAX_SAFE_INTEGER, cruzado: false, terms: [] };
+    const g = groups.get(key) ?? { expression: t.expression, reading: t.reading, score: -Infinity, rel: Number.MAX_SAFE_INTEGER, cruzado: false, prioridad: Number.MAX_SAFE_INTEGER, terms: [] };
     g.score = Math.max(g.score, t.score);
+    // Una entrada puede venir de varios diccionarios; manda el de más prioridad.
+    g.prioridad = Math.min(g.prioridad, dicts.get(t.dict)?.order ?? t.dict);
     if (cruzados?.has(t.id!)) {
       g.cruzado = true;
       if (relevanciaCruzada) g.rel = Math.min(g.rel, relevanciaCruzada(t));
@@ -263,9 +285,69 @@ async function armar(
   const comparar = (a: Grupo, b: Grupo) =>
     rank(a) - rank(b) || a.rel - b.rel || b.score - a.score || a.expression.length - b.expression.length;
 
+  /**
+   * Reparte los huecos entre diccionarios en vez de dárselos todos al que más coincidencias tenga.
+   *
+   * Buscar «to eat» con JMdict y KRDICT daba veinte resultados japoneses y ninguno coreano. Cada
+   * diccionario con resultados se lleva un mínimo garantizado, y lo que sobra va por prioridad
+   * (el orden de las flechas en Diccionarios) y luego por ranking.
+   */
+  const repartirPorDiccionario = (todos: Grupo[]): Grupo[] => {
+    const porDiccionario = new Map<number, Grupo[]>();
+    for (const g of todos) {
+      const lista = porDiccionario.get(g.prioridad);
+      if (lista) lista.push(g);
+      else porDiccionario.set(g.prioridad, [g]);
+    }
+    if (porDiccionario.size < 2) return todos.sort(comparar).slice(0, MAX_ENTRIES);
+
+    for (const lista of porDiccionario.values()) lista.sort(comparar);
+    const elegidos: Grupo[] = [];
+    const puestos = new Set<Grupo>();
+    for (const prioridad of [...porDiccionario.keys()].sort((a, b) => a - b)) {
+      for (const g of porDiccionario.get(prioridad)!.slice(0, MIN_POR_DICCIONARIO)) {
+        if (elegidos.length >= MAX_ENTRIES) break;
+        elegidos.push(g);
+        puestos.add(g);
+      }
+    }
+    const resto = todos
+      .filter(g => !puestos.has(g))
+      .sort((a, b) => a.prioridad - b.prioridad || comparar(a, b));
+    return [...elegidos, ...resto].slice(0, MAX_ENTRIES);
+  };
+
+  /**
+   * Quita las entradas repetidas que solo se diferencian en la forma de la palabra.
+   *
+   * Los diccionarios coreanos meten las formas conjugadas como entradas sueltas para que Yomitan
+   * las encuentre sin deinflector: 든, 듭, 드 y 듦 comparten definición con 들다. Buscando "to eat"
+   * llenaban la lista. Se comparan las definiciones ignorando el coreano (que es donde está la
+   * diferencia) y se conserva la expresión más larga, que es la forma de diccionario.
+   */
+  const quitarRepetidos = (lista: Grupo[]): Grupo[] => {
+    const mejorPorFirma = new Map<string, Grupo>();
+    const salida: Grupo[] = [];
+    for (const g of lista) {
+      const texto = segmentosGlosario(g.terms[0].glossary).join(" ");
+      const firma = `${g.prioridad} ${texto.replace(/[가-힯]+/g, "").trim().slice(0, 160)}`;
+      const previo = mejorPorFirma.get(firma);
+      if (!previo) {
+        mejorPorFirma.set(firma, g);
+        salida.push(g);
+      } else if (g.expression.length > previo.expression.length) {
+        salida[salida.indexOf(previo)] = g;
+        mejorPorFirma.set(firma, g);
+      }
+    }
+    return salida;
+  };
+
   let sorted: Grupo[];
-  const todos = [...groups.values()];
-  if (cruzados?.size) {
+  const todos = repartir ? quitarRepetidos([...groups.values()]) : [...groups.values()];
+  if (repartir) {
+    sorted = repartirPorDiccionario(todos);
+  } else if (cruzados?.size) {
     // Los encontrados por definición van en su propia lista con hueco garantizado. Ahí una
     // expresión de una sola sílaba (들, 드) casi nunca es la palabra buscada, sino un fragmento,
     // así que se manda al final en vez de premiarla por corta.

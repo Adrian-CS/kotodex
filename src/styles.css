@@ -54,6 +54,24 @@ button, input, select { font: inherit; color: inherit; }
 .empty .primary { margin-top: 8px; }
 .error { color: var(--danger); }
 
+/* Aviso de sincronización rota */
+.aviso-sync {
+  margin: 12px 0; padding: 12px 14px; border: 1px solid var(--danger); border-radius: 10px;
+  background: var(--sheet); font-size: 14px;
+}
+.aviso-sync p { margin: 0 0 6px; }
+.aviso-detalle { color: var(--muted); font-size: 13px; }
+.aviso-acciones { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.aviso-acciones button { height: 36px; }
+
+/* Filtros por diccionario encima de los resultados */
+.filtros { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.chip {
+  height: 30px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 15px;
+  background: var(--sheet); color: var(--muted); font-size: 13px; white-space: nowrap;
+}
+.chip.activo { border-color: var(--accent); color: var(--accent-ink); background: var(--accent); }
+
 /* Entrada del diccionario */
 .entry { padding: 20px 0 24px; border-bottom: 1px solid var(--rule); }
 .entry-head { text-align: center; }

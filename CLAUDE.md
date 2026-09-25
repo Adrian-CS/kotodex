@@ -62,6 +62,19 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
 - `src/search.ts` — exacta por expresión/lectura (variantes hira/kata) → si no hay, **deinflexión** → si no, prefijo
   por expresión (limit 200). Agrupa por (expresión, lectura), ordena exacta-expr > exacta-lectura > prefijo, luego
   score. Máx 20. Pitch desde metas. La búsqueda por prefijo aún no mira `reading`.
+- Búsqueda por definición, tres cosas que costó afinar y conviene no deshacer:
+  relevancia **por palabras** con el mismo tokenizador del índice (así «to eat» encuentra los
+  sentidos escritos «eat», y los diccionarios que pegan la cabecera al sentido —«먹다 eat» en
+  KRDICT— dejan de quedarse fuera); **reparto de huecos por diccionario** (`MIN_POR_DICCIONARIO`),
+  porque si no JMdict se lleva los 20; y **deduplicado por definición**, porque los diccionarios
+  coreanos meten las formas conjugadas como entradas sueltas (든, 듭, 드 comparten definición con
+  들다) y llenaban la lista. Nada de penalizar por expresión corta: 물 es una palabra legítima.
+- Filtros de diccionario encima de los resultados (`.filtros`): salen solos cuando hay más de uno y
+  se reinician al cambiar la búsqueda. El filtro entra en `search()`, no se aplica encima: así el
+  diccionario elegido aporta los 20 resultados y no solo los que sobrevivían al reparto. La lista de
+  botones se calcula con la búsqueda sin filtrar y se conserva, o al filtrar desaparecerían.
+- `components/SyncBanner.tsx` — banda de aviso si `/health` dice que el último sync automático falló.
+  Es el aviso que se ve siempre: el correo y ntfy hay que configurarlos.
 - Prioridad de diccionarios: `Dictionary.order` (flechas en Diccionarios). Decide el orden de los
   bloques de definición Y el de las secciones (国語/Español/English), en la app y en la tarjeta.
   SearchView depende de una «huella» de los diccionarios, no solo del número: sin eso, reordenar o

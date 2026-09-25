@@ -3,6 +3,7 @@ import { SearchView } from "./components/SearchView";
 import { HistoryView } from "./components/HistoryView";
 import { DictionariesView } from "./components/DictionariesView";
 import { SettingsView } from "./components/SettingsView";
+import { SyncBanner } from "./components/SyncBanner";
 import { loadSettings, saveSettings, type Settings } from "./settings";
 
 type Tab = "search" | "history" | "dicts" | "settings";
@@ -25,6 +26,7 @@ export default function App() {
   return (
     <div className="app">
       <main className="view">
+        <SyncBanner settings={settings} />
         {/* SearchView se mantiene montado para no perder la búsqueda al cambiar de pestaña */}
         <div hidden={tab !== "search"}>
           <SearchView
