@@ -1,6 +1,6 @@
 import { db, type Dictionary, type Term } from "./db";
 import { deinflect, matchesRules, rulesMask, suruStem, VS, type Deinflection } from "./deinflect";
-import { esConsultaLatina, tokenizar } from "./glosses";
+import { esConsultaLatina, glossTexts, normalizar, tokenizar } from "./glosses";
 import { sensesHtml } from "./structured";
 
 export type DefRole = "ja" | "es" | "en";
@@ -44,7 +44,7 @@ export async function search(raw: string): Promise<Entry[]> {
   // Consulta en alfabeto latino: se busca dentro de las definiciones, no por expresión.
   if (esConsultaLatina(q)) {
     const encontrados = (await porDefinicion(q)).filter(defDict);
-    return armar(encontrados, dicts, new Set<string>(), new Map());
+    return armar(encontrados, dicts, new Set<string>(), new Map(), relevancia(q));
   }
 
   const variants = [...new Set([q, toHiragana(q), toKatakana(q)])];
@@ -122,21 +122,42 @@ async function porDefinicion(q: string): Promise<Term[]> {
   return encontrados.filter((t): t is Term => t !== undefined);
 }
 
+/**
+ * Cuánto encaja una definición con lo que se buscó, de 0 (mejor) a 3.
+ *
+ * Sin esto, buscar "bridge" en JMdict devuelve 埋める antes que 橋, porque solo se mira la
+ * frecuencia. Lo que interesa es que la palabra buscada SEA la definición, no que aparezca dentro.
+ */
+function relevancia(q: string): (t: Term) => number {
+  const buscado = normalizar(q).replace(/\s+/g, " ").trim();
+  return (t: Term) => {
+    let mejor = 3;
+    for (const sentido of glossTexts(t.glossary)) {
+      if (sentido === buscado) return 0;                                  // la definición es justo eso
+      if (sentido.startsWith(buscado + " ")) mejor = Math.min(mejor, 1);   // empieza por ahí
+      else if (sentido.includes(buscado)) mejor = Math.min(mejor, 2);      // solo lo menciona
+    }
+    return mejor;
+  };
+}
+
 /** Agrupa por (expresión, lectura), ordena, añade el pitch y arma las entradas finales. */
 async function armar(
   terms: Term[],
   dicts: Map<number, Dictionary>,
   matched: Set<string>,
   inflectedByTerm: Map<number, Inflected>,
+  relevanciaDe?: (t: Term) => number,
 ): Promise<Entry[]> {
-  const groups = new Map<string, { expression: string; reading: string; score: number; terms: Term[]; inflected?: Inflected }>();
+  const groups = new Map<string, { expression: string; reading: string; score: number; rel: number; terms: Term[]; inflected?: Inflected }>();
   const seen = new Set<number>();
   for (const t of terms) {
     if (seen.has(t.id!)) continue;
     seen.add(t.id!);
     const key = `${t.expression}\u0000${t.reading}`;
-    const g = groups.get(key) ?? { expression: t.expression, reading: t.reading, score: -Infinity, terms: [] };
+    const g = groups.get(key) ?? { expression: t.expression, reading: t.reading, score: -Infinity, rel: 3, terms: [] };
     g.score = Math.max(g.score, t.score);
+    if (relevanciaDe) g.rel = Math.min(g.rel, relevanciaDe(t));
     g.terms.push(t);
     const inflected = inflectedByTerm.get(t.id!);
     if (inflected && (!g.inflected || inflected.reasons.length < g.inflected.reasons.length)) g.inflected = inflected;
@@ -146,7 +167,8 @@ async function armar(
   const rank = (e: { expression: string; reading: string }) =>
     matched.has(e.expression) ? 0 : matched.has(e.reading) ? 1 : 2;
   const sorted = [...groups.values()]
-    .sort((a, b) => rank(a) - rank(b) || b.score - a.score || a.expression.length - b.expression.length)
+    .sort((a, b) =>
+      rank(a) - rank(b) || a.rel - b.rel || b.score - a.score || a.expression.length - b.expression.length)
     .slice(0, MAX_ENTRIES);
 
   // El pitch se coge de cualquier diccionario activo que lo traiga, no solo de los marcados con el

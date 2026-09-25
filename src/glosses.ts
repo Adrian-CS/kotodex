@@ -35,6 +35,15 @@ function textoPlano(nodo: unknown, salida: string[]): void {
   if (n.content !== undefined) textoPlano(n.content, salida);
 }
 
+/** Cada sentido por separado, en texto plano y normalizado. Sirve para ordenar por relevancia. */
+export function glossTexts(glossary: unknown[]): string[] {
+  return glossary.map(item => {
+    const trozos: string[] = [];
+    textoPlano(item, trozos);
+    return normalizar(trozos.join(" ")).replace(/\s+/g, " ").trim();
+  }).filter(Boolean);
+}
+
 /** Palabras indexables de un glosario. Vacío si la definición no lleva alfabeto latino. */
 export function indexWords(glossary: unknown[]): string[] {
   const trozos: string[] = [];
