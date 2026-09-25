@@ -11,6 +11,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import logging
 import secrets
 from contextlib import asynccontextmanager
 
@@ -21,18 +22,23 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .anki_service import FIELDS, NOTETYPE_NAME, AnkiService, ServiceError
+from .autosync import AutoSync
 from .config import Settings, load_settings
 
 settings: Settings = load_settings()
 service = AnkiService(settings)
+autosync = AutoSync(service, settings)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     service.open()
+    autosync.start()
     try:
         yield
     finally:
+        autosync.stop()
         service.close()
 
 
@@ -93,6 +99,13 @@ async def health() -> dict:
         "fields": list(FIELDS),
         "audio": settings.has_audio,
         "sync": settings.can_sync,
+        "autosync": {
+            "cada_horas": settings.sync_every_hours,
+            "proximo_en_minutos": (
+                round(autosync.proximo_en_segundos / 60) if autosync.proximo_en_segundos is not None else None
+            ),
+            "ultimo_resultado": autosync.ultimo_resultado,
+        },
     }
 
 

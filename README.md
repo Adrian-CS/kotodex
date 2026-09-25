@@ -2,6 +2,8 @@
 
 Diccionario japonés local-first que crea tarjetas del tipo de nota **JP Dict**.
 
+Chuleta de comandos para operar y desarrollar: [COMANDOS.md](COMANDOS.md).
+
 ## Desarrollo
 ```bash
 npm install

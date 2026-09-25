@@ -57,6 +57,14 @@ Para que arranque solo al iniciar sesión:
 Start-ScheduledTask -TaskName kotodex-anki
 ```
 
+Alternativa sin administrador, si `install-task.ps1` da «acceso denegado»:
+`.\deploy\windows\install-startup.ps1`, que deja un acceso directo en la carpeta de Inicio. Más
+simple, pero no reintenta si el servidor se cae.
+
+Cada vez que se toca el `.env` hay que reiniciar: `.\deploy\windows
+estart-kotodex.ps1`
+(con la tarea programada, `Stop-ScheduledTask` + `Start-ScheduledTask`).
+
 El registro queda en `server\data\kotodex.log` y `kotodex.err.log`.
 
 **Que el portátil no se duerma**, o el servidor deja de responder:
@@ -92,6 +100,47 @@ sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
 sudo mkswap /swapfile && sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
+
+### Poner la colección al día (una sola vez)
+
+La colección del servidor nace vacía y la tuya está en AnkiWeb. Hay dos formas de ponerla al día;
+la primera es mejor casi siempre.
+
+**Clonar la de escritorio** (`deploy/windows/clone-desktop-collection.ps1`). Tu Anki de escritorio
+ya está sincronizado con AnkiWeb, así que copiarlo en local deja al servidor en el mismo estado que
+una descarga completa, en minutos en vez de horas y sin depender de la red. Antes: sincroniza Anki
+de escritorio (colección **y** media), ciérralo y para el servidor.
+
+```powershell
+.\deploy\windows\clone-desktop-collection.ps1
+```
+
+Aparta la colección anterior a `data.bak-<fecha>` y copia la media con robocopy. Que dos
+colecciones compartan origen no es problema: es lo mismo que restaurar una copia en un segundo
+dispositivo, y a partir de ahí cada una sincroniza incrementalmente.
+
+**Descargar de AnkiWeb** (`deploy/first-sync.py`), si no tienes Anki de escritorio a mano.
+
+
+La colección del servidor nace vacía y la tuya está en AnkiWeb, así que la primera vez hay que
+traérsela entera. `POST /sync` no lo hace a propósito: una sincronización completa pisa una de las
+dos colecciones y eso no debería dispararlo un endpoint. Para eso está `deploy/first-sync.py`.
+
+Antes: rellena `ANKIWEB_USERNAME` y `ANKIWEB_PASSWORD` en `.env`, sincroniza tu Anki de escritorio
+para que AnkiWeb tenga lo último, y **para el servidor** (Anki bloquea la colección en exclusiva).
+
+```powershell
+.\deploy\windows
+estart-kotodex.ps1   # (o parar el servidor a mano)
+.env\Scripts\python.exe deployirst-sync.py
+```
+
+Pide confirmación escribiendo `DESCARGAR`. La media (en una colección grande, cientos de miles de
+ficheros y varios GB) tarda horas; se puede cortar con Ctrl+C y retomar, continúa donde iba.
+
+A partir de ahí, `POST /sync` ya es incremental. Ten en cuenta que pasas a tener **tres
+dispositivos** contra la misma cuenta (escritorio, AnkiMobile y el servidor): sincroniza con cierta
+regularidad para no acumular divergencias.
 
 ### Crear el tipo de nota
 
@@ -155,8 +204,36 @@ responda bien.
 - **`/sync` no hace sincronizaciones completas.** Si AnkiWeb pide una (porque cambió el esquema en
   el otro lado), devuelve 409 y lo resuelves tú en el ordenador o en AnkiMobile. Un full sync pisa
   una de las dos colecciones entera y eso no se decide desde un endpoint.
-- Añadir campos al tipo de nota es un cambio de esquema y obliga a un full sync, por eso
-  `/notetype/ensure` no lo hace sin `{"force": true}`. Cambiar plantillas y CSS sí es seguro.
+- **Qué obliga a un full sync y qué no** (comprobado mirando `scm` en la base de datos):
+  añadir un campo a un tipo de nota existente **sí** cambia el esquema, por eso `/notetype/ensure`
+  no lo hace sin `{"force": true}`. Crear un tipo de nota nuevo, cambiar plantillas o CSS, y crear
+  mazos **no**. Así que recrear «JP Dict» después de la descarga inicial es seguro.
+
+## Sincronización automática y avisos
+
+`KOTODEX_SYNC_EVERY_HOURS` (12 por defecto, 0 lo desactiva) hace que el servidor sincronice solo en
+un hilo aparte. La marca del último sync se guarda en `data/autosync.json`, así que reiniciar no
+reinicia la cuenta. El estado sale en `/health`.
+
+**Qué resuelve y qué no.** Sincronizar a menudo evita que se te olvide y reduce la ventana en la que
+las colecciones divergen, pero **no evita los 409 de «hace falta sincronización completa»**: eso lo
+provoca un cambio de esquema en cualquier dispositivo (tocar los campos de un tipo de nota, un
+«Check Database», restaurar una copia), no la cantidad de cambios acumulados.
+
+Por eso, cuando el sync automático falla, avisa con las instrucciones de qué hacer. Dos vías, se
+usan las que estén configuradas:
+
+- **Correo** (`KOTODEX_SMTP_*`). Con Zoho, `smtp.zoho.eu` puerto 587, y la contraseña tiene que ser
+  una *contraseña de aplicación*, no la de la cuenta.
+- **Webhook en texto plano** (`KOTODEX_NOTIFY_WEBHOOK`), pensado para [ntfy](https://ntfy.sh):
+  instalas la app en el iPhone, te suscribes a un tema difícil de adivinar y pones esa URL. Es la
+  opción sin contraseñas.
+
+El mismo aviso no se repite hasta pasadas 12 horas, para que un problema que dure días no llene el
+buzón. Un fallo al avisar nunca tumba el sync: se queda en el registro.
+
+Mientras el sync esté roto la PWA sigue creando tarjetas con normalidad; se quedan en la colección
+del servidor y suben cuando se arregle.
 
 ## Audio
 

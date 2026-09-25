@@ -31,7 +31,11 @@ el free tier no la cubre).
   aporta sus diccionarios (los monolingües tienen copyright → no se incluyen ni se suben a ningún sitio).
 - **El pitch se guarda como SVG estático dentro del campo** `Pitch` → la tarjeta funciona offline y sin JS en Anki.
 - **Audio y API nunca públicos** (Cloudflare Access). No redistribuir audios.
-- AnkiConnect no existe en iOS; por eso los dos modos: URL scheme y servidor propio.
+- AnkiConnect no existe en iOS; por eso los dos modos: URL scheme y servidor propio. Aunque el servidor
+  acabó corriendo en el portátil (donde sí hay AnkiConnect), se mantiene la colección propia para que
+  funcione con Anki de escritorio cerrado. Coste: descarga completa inicial y tres dispositivos sincronizando.
+- Cambios que **no** rompen el sync incremental (comprobado sobre `scm`): crear un tipo de nota, cambiar
+  plantillas o CSS, crear mazos. **Sí** lo rompe añadir un campo a un tipo de nota existente.
 - **Tailscale `serve` en vez de Cloudflare Tunnel** porque no hay dominio propio. Hace falta algo que dé nombre,
   certificado HTTPS y alcance detrás del router: la PWA va por HTTPS y el navegador bloquea las llamadas a
   `http://`, así que una IP pelada no vale. Cloudflare Tunnel exigiría comprar dominio.
@@ -65,7 +69,10 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   URL y token del servidor (localStorage, PWA propia).
 - `src/server.ts` — cliente del servidor: health, decks, notetype/ensure, notes, sync. Los errores de la API se
   enseñan tal cual en la UI.
+- `server/app/autosync.py` + `notify.py` — sync automático cada X horas en un hilo aparte; si falla, avisa por
+  correo o webhook con instrucciones. No evita los 409 (los causa un cambio de esquema, no el volumen).
 - `server/` — la API. Ver `server/README.md`: endpoints, despliegue y las trampas de la colección de Anki.
+- `COMANDOS.md` — chuleta de operación (arrancar/reiniciar el servidor, Tailscale, desplegar, diagnóstico).
 - `src/components/` — SearchView (siempre montado para no perder la búsqueda), EntryCard, DictionariesView, SettingsView.
 - `notetype/` — plantillas del tipo de nota **JP Dict** (front.html, back.html, style.css; soporta `.nightMode`).
 - `scripts/make-test-dicts.py` — diccionarios de prueba en `test-dicts/`.

@@ -2,3 +2,6 @@ node_modules
 dist
 test-dicts
 *.local
+server/data.bak-20260925-134528/collection.anki2
+server/data.bak-20260925-134528/kotodex.log
+server/data.bak-20260925-134528/kotodex.err.log

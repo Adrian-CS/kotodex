@@ -39,6 +39,14 @@ class Settings:
     ankiweb_password: str
     ankiweb_endpoint: str | None
     cors_origins: tuple[str, ...]
+    sync_every_hours: float
+    smtp_host: str
+    smtp_port: int
+    smtp_user: str
+    smtp_password: str
+    smtp_from: str
+    smtp_to: str
+    notify_webhook: str
 
     @property
     def can_sync(self) -> bool:
@@ -75,4 +83,12 @@ def load_settings() -> Settings:
         ankiweb_password=_env("ANKIWEB_PASSWORD"),
         ankiweb_endpoint=_env("ANKIWEB_ENDPOINT") or None,
         cors_origins=tuple(o.strip() for o in _env("KOTODEX_CORS_ORIGINS").split(",") if o.strip()),
+        sync_every_hours=float(_env("KOTODEX_SYNC_EVERY_HOURS", "12") or 0),
+        smtp_host=_env("KOTODEX_SMTP_HOST"),
+        smtp_port=int(_env("KOTODEX_SMTP_PORT", "587") or 587),
+        smtp_user=_env("KOTODEX_SMTP_USER"),
+        smtp_password=_env("KOTODEX_SMTP_PASSWORD"),
+        smtp_from=_env("KOTODEX_SMTP_FROM"),
+        smtp_to=_env("KOTODEX_SMTP_TO"),
+        notify_webhook=_env("KOTODEX_NOTIFY_WEBHOOK"),
     )
