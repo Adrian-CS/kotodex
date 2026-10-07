@@ -34,6 +34,8 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
   const [error, setError] = useState<string | null>(null);
   const [dupes, setDupes] = useState<Map<string, WordCheck>>(new Map());
   const [filtro, setFiltro] = useState<string | null>(null);
+  // Hay una búsqueda pendiente (en espera o en curso). La barra solo se ve si tarda: ver .cargando.
+  const [buscando, setBuscando] = useState(false);
   // La lista de filtros se calcula con la búsqueda SIN filtrar y se conserva mientras hay uno
   // puesto: si no, al filtrar desaparecerían los demás botones y no habría forma de cambiar.
   const [chips, setChips] = useState<string[]>([]);
@@ -53,20 +55,26 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
 
   useEffect(() => {
     const q = query.trim();
-    if (!q) { setResults(null); setChips([]); return; }
+    if (!q) { setResults(null); setChips([]); setBuscando(false); return; }
     const id = ++requestId.current;
+    setBuscando(true);
     const timer = setTimeout(() => {
       search(q, filtro)
         .then(r => {
           if (id !== requestId.current) return;
           setResults(r);
           setError(null);
+          setBuscando(false);
           if (filtro === null) {
             setChips(diccionariosDe(r));
             recordSearch(q, r);   // el historial guarda la búsqueda completa, no la filtrada
           }
         })
-        .catch(e => { if (id === requestId.current) setError(String(e?.message ?? e)); });
+        .catch(e => {
+          if (id !== requestId.current) return;
+          setError(String(e?.message ?? e));
+          setBuscando(false);
+        });
     }, 200);
     return () => clearTimeout(timer);
   }, [query, filtro, dictHuella]);
@@ -88,7 +96,7 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
   }, [results, settings.mode, settings.serverUrl, settings.serverToken]);
 
   return (
-    <div className="search">
+    <div className={`search${buscando ? " buscando" : ""}`}>
       <div className="search-bar">
         <input
           type="search"
@@ -102,6 +110,7 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
           autoCorrect="off"
           spellCheck={false}
         />
+        {buscando && <div className="cargando" role="status" aria-label={t("search.loading")} />}
       </div>
 
       {dictCount === 0 && (
@@ -113,7 +122,7 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
 
       {error && <p className="error">{t("search.failed", { error })}</p>}
 
-      {results && results.length === 0 && dictCount !== 0 && (
+      {results && results.length === 0 && dictCount !== 0 && !buscando && (
         <p className="empty">{t("search.noResults", { query: query.trim() })}</p>
       )}
 

@@ -37,6 +37,7 @@ const es = {
   "search.noResults": "Sin resultados para «{query}». Prueba con la forma de diccionario o revisa qué diccionarios tienes activos.",
   "search.filterAll": "Todos",
   "search.filterGroup": "Filtrar por diccionario",
+  "search.loading": "Buscando…",
 
   "entry.ja": "国語",
   "entry.es": "Español",
@@ -152,6 +153,7 @@ const en: Record<Claves, string> = {
   "search.noResults": "No results for “{query}”. Try the dictionary form, or check which dictionaries are active.",
   "search.filterAll": "All",
   "search.filterGroup": "Filter by dictionary",
+  "search.loading": "Searching…",
 
   "entry.ja": "国語",
   "entry.es": "Español",
@@ -265,6 +267,7 @@ const ja: Record<Claves, string> = {
   "search.noResults": "「{query}」は見つかりませんでした。辞書形で試すか、有効な辞書を確認してください。",
   "search.filterAll": "すべて",
   "search.filterGroup": "辞書で絞り込む",
+  "search.loading": "検索中…",
 
   "entry.ja": "国語",
   "entry.es": "Español",
