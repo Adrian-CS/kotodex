@@ -100,6 +100,12 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   forma literal por el deinflector (tabeta → 食べる). En `search()` va junto a la búsqueda por
   definición: si las dos dan algo se juntan, primero la de definiciones solo si un sentido ES la
   consulta («bridge»), y la segunda lista tiene huecos reservados (`CUOTA_SEGUNDA_LISTA`).
+- Rendimiento en el iPhone (Safari va mucho más lento que Chromium con IndexedDB): las búsquedas
+  obsoletas se cancelan entre fases (`OpcionesBusqueda.vigente`), lo latino espera 350 ms antes de
+  buscar, los candidatos romanizados se buscan SOLO por `reading` (el importador la rellena siempre),
+  sin diccionario coreano no se generan candidatos en hangul, y las fichas van memorizadas con una
+  sola consulta de «ya añadida» para todas. Si una búsqueda pasa de 1,5 s, SearchView enseña el
+  desglose por fases debajo de la barra: es la forma de medir en el propio teléfono.
 - `src/deinflect.ts` — tabla de Yomitan (`ext/data/deinflect.json`, 36 razones / 569 reglas) en formato compacto
   `"sufijo:reemplazo:clasesEntrada:clasesSalida"`, con las razones en español. Filtra por el campo `rules` de
   term_bank; si el diccionario no lo trae (monolingües), acepta. `suruStem()` cubre 勉強しました → 勉強 (rules `vs`).

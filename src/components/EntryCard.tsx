@@ -1,6 +1,5 @@
-import { useState } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
-import { db, entryKey } from "../db";
+import { memo, useState } from "react";
+import { db, entryKey, type Added } from "../db";
 import { pitchField } from "../pitch";
 import type { DefRole, Entry } from "../search";
 import type { Settings } from "../settings";
@@ -22,13 +21,18 @@ interface Props {
   setSettings: (s: Settings) => void;
   /** Qué hay ya en la colección con esta palabra. undefined = todavía sin comprobar. */
   inCollection?: WordCheck;
+  /** Si ya se añadió desde aquí. Lo consulta SearchView para todas las fichas de una vez. */
+  added?: Added;
   t: T;
   idioma: Idioma;
 }
 
-export function EntryCard({ entry, settings, setSettings, inCollection, t, idioma }: Props) {
+/**
+ * Memorizada: cada tecla vuelve a pintar SearchView, y sin esto las 20 fichas de la búsqueda
+ * anterior se repintaban enteras con cada letra (en el iPhone se notaba al escribir en rōmaji).
+ */
+export const EntryCard = memo(function EntryCard({ entry, settings, setSettings, inCollection, added, t, idioma }: Props) {
   const key = entryKey(entry.expression, entry.reading);
-  const added = useLiveQuery(() => db.added.get(key), [key]);
   const deck = settings.decks.includes(settings.lastDeck) ? settings.lastDeck : settings.decks[0] ?? "";
   const showReading = entry.reading !== entry.expression;
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -131,4 +135,4 @@ export function EntryCard({ entry, settings, setSettings, inCollection, t, idiom
       {status.kind === "idle" && added && <p className="added-note">{t("entry.addedTo", { deck: added.deck })}</p>}
     </article>
   );
-}
+});

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, entryKey } from "../db";
 import { recordSearch } from "../history";
-import { search, type Entry } from "../search";
+import { BusquedaCancelada, search, type Entry, type Tiempos } from "../search";
+import { esConsultaLatina } from "../glosses";
 import { checkNotes, type WordCheck } from "../server";
 import type { Settings } from "../settings";
 import type { Idioma, T } from "../i18n";
@@ -18,6 +19,10 @@ function diccionariosDe(entradas: Entry[]): string[] {
   }
   return salida;
 }
+
+/** A partir de cuánto se enseña el desglose de tiempos debajo de la barra. */
+const UMBRAL_LENTA_MS = 1500;
+const segundos = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 
 interface Props {
   query: string;
@@ -36,6 +41,8 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
   const [filtro, setFiltro] = useState<string | null>(null);
   // Hay una búsqueda pendiente (en espera o en curso). La barra solo se ve si tarda: ver .cargando.
   const [buscando, setBuscando] = useState(false);
+  // Desglose de la última búsqueda si fue lenta: sirve para saber qué fase falla en el iPhone.
+  const [lenta, setLenta] = useState<Tiempos | null>(null);
   // La lista de filtros se calcula con la búsqueda SIN filtrar y se conserva mientras hay uno
   // puesto: si no, al filtrar desaparecerían los demás botones y no habría forma de cambiar.
   const [chips, setChips] = useState<string[]>([]);
@@ -50,6 +57,14 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
   const dictCount = dictHuella === undefined ? undefined : (dictHuella ? dictHuella.split("|").length : 0);
   const requestId = useRef(0);
 
+  // Qué fichas ya se añadieron, en UNA consulta para todas. Antes cada ficha tenía la suya, y eran
+  // veinte consultas en vivo a IndexedDB cada vez que llegaban resultados nuevos.
+  const claves = results?.map(e => entryKey(e.expression, e.reading)) ?? [];
+  const anadidas = useLiveQuery(
+    async () => new Map((await db.added.bulkGet(claves)).filter(a => a !== undefined).map(a => [a.key, a])),
+    [claves.join("|")],
+  );
+
   // Una consulta nueva empieza siempre sin filtro.
   useEffect(() => { setFiltro(null); }, [query]);
 
@@ -58,8 +73,14 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
     if (!q) { setResults(null); setChips([]); setBuscando(false); return; }
     const id = ++requestId.current;
     setBuscando(true);
+    // En alfabeto latino se teclea letra a letra (en japonés el IME entrega la palabra entera), así
+    // que se espera algo más antes de buscar: cada pausa breve lanzaba una búsqueda intermedia.
+    const espera = esConsultaLatina(q) ? 350 : 200;
     const timer = setTimeout(() => {
-      search(q, filtro)
+      search(q, filtro, {
+        vigente: () => id === requestId.current,
+        alMedir: t => setLenta(t.total > UMBRAL_LENTA_MS ? t : null),
+      })
         .then(r => {
           if (id !== requestId.current) return;
           setResults(r);
@@ -71,11 +92,11 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
           }
         })
         .catch(e => {
-          if (id !== requestId.current) return;
+          if (id !== requestId.current || e instanceof BusquedaCancelada) return;
           setError(String(e?.message ?? e));
           setBuscando(false);
         });
-    }, 200);
+    }, espera);
     return () => clearTimeout(timer);
   }, [query, filtro, dictHuella]);
 
@@ -122,6 +143,15 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
 
       {error && <p className="error">{t("search.failed", { error })}</p>}
 
+      {lenta && !buscando && (
+        <p className="tiempos">
+          {t("search.slow", {
+            total: segundos(lenta.total),
+            fases: lenta.fases.filter(([, ms]) => ms >= 50).map(([n, ms]) => `${n} ${segundos(ms)}`).join(" · "),
+          })}
+        </p>
+      )}
+
       {results && results.length === 0 && dictCount !== 0 && !buscando && (
         <p className="empty">{t("search.noResults", { query: query.trim() })}</p>
       )}
@@ -151,6 +181,7 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
           settings={settings}
           setSettings={setSettings}
           inCollection={dupes.get(entryKey(e.expression, e.reading))}
+          added={anadidas?.get(entryKey(e.expression, e.reading))}
           t={t}
           idioma={idioma}
         />

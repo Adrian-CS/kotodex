@@ -38,6 +38,7 @@ const es = {
   "search.filterAll": "Todos",
   "search.filterGroup": "Filtrar por diccionario",
   "search.loading": "Buscando…",
+  "search.slow": "Búsqueda lenta ({total}): {fases}",
 
   "entry.ja": "国語",
   "entry.es": "Español",
@@ -154,6 +155,7 @@ const en: Record<Claves, string> = {
   "search.filterAll": "All",
   "search.filterGroup": "Filter by dictionary",
   "search.loading": "Searching…",
+  "search.slow": "Slow search ({total}): {fases}",
 
   "entry.ja": "国語",
   "entry.es": "Español",
@@ -268,6 +270,7 @@ const ja: Record<Claves, string> = {
   "search.filterAll": "すべて",
   "search.filterGroup": "辞書で絞り込む",
   "search.loading": "検索中…",
+  "search.slow": "検索に時間がかかりました（{total}）: {fases}",
 
   "entry.ja": "国語",
   "entry.es": "Español",

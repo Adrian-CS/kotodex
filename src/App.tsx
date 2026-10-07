@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { SearchView } from "./components/SearchView";
 import { HistoryView } from "./components/HistoryView";
 import { DictionariesView } from "./components/DictionariesView";
@@ -20,10 +20,11 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("search");
   const [query, setQuery] = useState("");
   const [settings, setSettingsState] = useState<Settings>(loadSettings);
-  const setSettings = (s: Settings) => { setSettingsState(s); saveSettings(s); };
+  // Estables entre renders: las fichas de resultados van memorizadas y dependen de ellas.
+  const setSettings = useCallback((s: Settings) => { setSettingsState(s); saveSettings(s); }, []);
 
   const idioma = settings.idioma === "auto" ? idiomaDelSistema() : settings.idioma;
-  const t = crearT(idioma);
+  const t = useMemo(() => crearT(idioma), [idioma]);
   const locale = localeDe(idioma);
 
   const buscarDesdeHistorial = (q: string) => { setQuery(q); setTab("search"); };
