@@ -169,6 +169,10 @@ junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173
 
 ## Gotchas
 - iOS: usar desde pantalla de inicio o Safari puede purgar IndexedDB; el usuario guarda los .zip en Archivos.
+- **No usar `anyOf` de Dexie** en tablas grandes: lo resuelve con un cursor que salta entre las claves y en
+  Safari el salto avanza fila a fila. Con claves dispersas (かいせき + candidatos en hangul) tardaba 6,7 s en el
+  iPhone y 10 ms en Chromium, así que en el ordenador no se ve. Usar `porClaves()` de search.ts: una consulta
+  `equals` por clave, en paralelo.
 - JMdict completo ≈ 200k términos: la importación va en el hilo principal → si se nota lenta, moverla a Web Worker.
 - AnkiMobile necesita que el tipo de nota y el mazo existan con el nombre exacto.
 - Longitud de URL: las defs largas inflan la URL del scheme; el servidor lo resuelve.
