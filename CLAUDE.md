@@ -91,6 +91,15 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   descompuestos (먹다 = ㅁㅓㄱㄷㅏ), así que usa `hangul-js` para descomponer y recomponer. Solo se
   aceptan candidatos que sean forma de diccionario (verbo, adjetivo, 이다); sin ese filtro 갔어요
   devuelve 갔 antes que 가다. Se carga con `import()` dinámico: 100 KB que no lastran el arranque.
+- `src/romanizacion.ts` — búsqueda por romanización: «kaiseki» → かいせき → 懐石/会席/解析, «sarang» → 사랑.
+  Genera CANDIDATOS (la romanización pierde información) y la búsqueda se queda con los que existen.
+  Japonés: Hepburn/Kunrei/IME; la n va con la vocal siguiente (konnichiwa = こんにちわ), y cada o/u se
+  prueba también larga (tokyo → とうきょう, katakana con ー). Coreano: romanización revisada probando
+  todos los cortes de sílaba (meogeoyo → 먹어요) con licencias penalizadas (k por ㄱ en kimchi, ch por ㅈ,
+  ㅂ/ㄱ nasalizadas); los de penalización 0 cuentan como exactos. Si no hay coincidencia, se pasa la
+  forma literal por el deinflector (tabeta → 食べる). En `search()` va junto a la búsqueda por
+  definición: si las dos dan algo se juntan, primero la de definiciones solo si un sentido ES la
+  consulta («bridge»), y la segunda lista tiene huecos reservados (`CUOTA_SEGUNDA_LISTA`).
 - `src/deinflect.ts` — tabla de Yomitan (`ext/data/deinflect.json`, 36 razones / 569 reglas) en formato compacto
   `"sufijo:reemplazo:clasesEntrada:clasesSalida"`, con las razones en español. Filtra por el campo `rules` de
   term_bank; si el diccionario no lo trae (monolingües), acepta. `suruStem()` cubre 勉強しました → 勉強 (rules `vs`).
@@ -111,6 +120,7 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
 - `notetype/` — plantillas del tipo de nota **JP Dict** (front.html, back.html, style.css; soporta `.nightMode`).
 - `scripts/make-test-dicts.py` — diccionarios de prueba en `test-dicts/`.
 - `scripts/test-deinflect.ts` — 33 casos del deinflector (`npm test`, usa `--experimental-strip-types`).
+- `scripts/test-romanizacion.ts` — rōmaji y coreano romanizado (también en `npm test`).
 
 ## Contrato: tipo de nota "JP Dict" (no cambiar orden/nombres sin actualizar anki.ts, notetype/ y servidor)
 1 Expression · 2 Reading · 3 Audio (`[sound:…]`, lo pone el servidor) · 4 Pitch (HTML/SVG) · 5 PitchNum (`0` o `0,2`)

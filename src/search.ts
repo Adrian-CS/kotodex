@@ -1,6 +1,7 @@
 import { db, type Dictionary, type Term } from "./db";
 import { deinflect, matchesRules, rulesMask, suruStem, VS, type Deinflection } from "./deinflect";
 import { esConsultaLatina, esJapones, glossTexts, normalizar, segmentosGlosario, tokenizar } from "./glosses";
+import { candidatosCoreanos, candidatosJaponeses } from "./romanizacion";
 import { sensesHtml } from "./structured";
 
 export type DefRole = "ja" | "es" | "en";
@@ -62,32 +63,24 @@ export async function search(raw: string, soloDiccionario?: string | null): Prom
         .filter(defDict)
     : [];
 
-  // Consulta en alfabeto latino: se busca dentro de las definiciones, no por expresión.
-  if (esConsultaLatina(q)) {
-    const encontrados = (await porDefinicion(q)).filter(defDict);
-    return armar(encontrados, dicts, new Set<string>(), new Map(), relevancia(q), undefined, undefined, true);
-  }
-
-  const variants = [...new Set([q, toHiragana(q), toKatakana(q)])];
-  let terms = await lookup(variants);
-
-  // Formas que han dado resultado: sirven para ordenar (coincidencia exacta antes que prefijo).
-  const matched = new Set(variants);
-  const inflectedByTerm = new Map<number, Inflected>();
-
-  // Coreano: sus reglas y su tabla (105 KB) se cargan solo si hace falta.
-  if (!terms.length && esCoreano(q)) {
+  /**
+   * Formas de diccionario coreanas a las que se llega deshaciendo la conjugación de `formas`.
+   * Sus reglas y su tabla (105 KB) se cargan solo si hace falta.
+   */
+  const deshacerCoreano: Deshacer = async (formas, destino, matched, inflectedByTerm, mostrar) => {
     const { deinflectKorean, FORMA_DE_DICCIONARIO } = await import("./deinflect-ko");
     const porForma = new Map<string, Inflected>();
-    for (const d of deinflectKorean(q)) {
-      if (!d.reasons.length) continue;
-      // Solo formas de diccionario (verbo, adjetivo, 이다). Sin esto, 갔어요 devuelve 갔 antes que
-      // 가다: 갔 existe en el diccionario pero es una terminación intermedia, no una entrada real.
-      if ((d.conditions & FORMA_DE_DICCIONARIO) === 0) continue;
-      const previo = porForma.get(d.term);
-      // De varias formas de llegar a la misma palabra, la explicación más corta.
-      if (!previo || d.reasons.length < previo.reasons.length) {
-        porForma.set(d.term, { form: q, reasons: d.reasons });
+    for (const forma of formas) {
+      for (const d of deinflectKorean(forma)) {
+        if (!d.reasons.length) continue;
+        // Solo formas de diccionario (verbo, adjetivo, 이다). Sin esto, 갔어요 devuelve 갔 antes que
+        // 가다: 갔 existe en el diccionario pero es una terminación intermedia, no una entrada real.
+        if ((d.conditions & FORMA_DE_DICCIONARIO) === 0) continue;
+        const previo = porForma.get(d.term);
+        // De varias formas de llegar a la misma palabra, la explicación más corta.
+        if (!previo || d.reasons.length < previo.reasons.length) {
+          porForma.set(d.term, { form: mostrar ?? forma, reasons: d.reasons });
+        }
       }
     }
     // Los diccionarios coreanos no traen el campo "rules", así que no hay clase que filtrar:
@@ -95,15 +88,15 @@ export async function search(raw: string, soloDiccionario?: string | null): Prom
     for (const t of await lookup([...porForma.keys()])) {
       const mejor = porForma.get(t.expression) ?? porForma.get(t.reading);
       if (!mejor) continue;
-      terms.push(t);
+      destino.push(t);
       inflectedByTerm.set(t.id!, mejor);
       matched.add(t.expression);
       matched.add(t.reading);
     }
-  }
+  };
 
-  // Sin coincidencia exacta: deshacer conjugaciones (食べた → 食べる) antes de probar por prefijo.
-  if (!terms.length && !esCoreano(q)) {
+  /** Lo mismo en japonés: 食べた → 食べる, 勉強しました → 勉強. */
+  const deshacerJapones: Deshacer = async (formas, destino, matched, inflectedByTerm) => {
     // suru: el candidato acaba en する pero se busca el sustantivo suelto (勉強しました → 勉強).
     interface Candidate { form: string; d: Deinflection; suru?: boolean }
     const byTerm = new Map<string, Candidate[]>();
@@ -112,7 +105,7 @@ export async function search(raw: string, soloDiccionario?: string | null): Prom
       if (list) list.push(c);
       else byTerm.set(term, [c]);
     };
-    for (const form of variants) {
+    for (const form of formas) {
       for (const d of deinflect(form)) {
         if (!d.reasons.length) continue;
         add(d.term, { form, d });
@@ -128,12 +121,42 @@ export async function search(raw: string, soloDiccionario?: string | null): Prom
         .filter(c => c.suru ? (entryRules & VS) !== 0 : matchesRules(c.d.rules, entryRules))
         .sort((a, b) => a.d.reasons.length - b.d.reasons.length)[0];
       if (!best) continue;
-      terms.push(t);
+      destino.push(t);
       inflectedByTerm.set(t.id!, { form: best.form, reasons: best.d.reasons });
       matched.add(t.expression);
       matched.add(t.reading);
     }
+  };
+
+  // Consulta en alfabeto latino: se busca dentro de las definiciones y, si se puede leer como
+  // rōmaji o como coreano romanizado, también por lectura (kaiseki → 懐石, sarang → 사랑).
+  if (esConsultaLatina(q)) {
+    const encontrados = (await porDefinicion(q)).filter(defDict);
+    const porDef = encontrados.length
+      ? await armar(encontrados, dicts, new Set<string>(), new Map(), relevancia(q), undefined, undefined, true)
+      : [];
+    const porLectura = await porRomanizacion(q, lookup, deshacerJapones, deshacerCoreano, dicts);
+    if (!porLectura.length) return porDef;
+    if (!porDef.length) return porLectura;
+    // Las dos listas a la vez: «sake» es una palabra inglesa y también 酒. Va primero la de
+    // definiciones solo si alguna la tiene como equivalente exacto («bridge» → 橋); si no, la
+    // consulta casi seguro era una lectura.
+    const rel = relevancia(q);
+    const definicionPrimero = encontrados.some(t => rel(t) === 0);
+    return juntar(definicionPrimero ? porDef : porLectura, definicionPrimero ? porLectura : porDef);
   }
+
+  const variants = [...new Set([q, toHiragana(q), toKatakana(q)])];
+  let terms = await lookup(variants);
+
+  // Formas que han dado resultado: sirven para ordenar (coincidencia exacta antes que prefijo).
+  const matched = new Set(variants);
+  const inflectedByTerm = new Map<number, Inflected>();
+
+  if (!terms.length && esCoreano(q)) await deshacerCoreano([q], terms, matched, inflectedByTerm);
+
+  // Sin coincidencia exacta: deshacer conjugaciones (食べた → 食べる) antes de probar por prefijo.
+  if (!terms.length && !esCoreano(q)) await deshacerJapones(variants, terms, matched, inflectedByTerm);
 
   if (!terms.length) {
     terms = (await db.terms.where("expression").startsWith(q).limit(200).toArray()).filter(defDict);
@@ -149,6 +172,64 @@ export async function search(raw: string, soloDiccionario?: string | null): Prom
   }
 
   return armar(terms, dicts, matched, inflectedByTerm, undefined, cruzados, relevanciaJaponesa(q));
+}
+
+/** `mostrar`: forma que se enseña como «escrita» si no es la propia candidata. */
+type Deshacer = (formas: string[], destino: Term[], matched: Set<string>, inflectedByTerm: Map<number, Inflected>, mostrar?: string) => Promise<void>;
+
+/** Huecos que se guardan a la segunda lista cuando una consulta latina da las dos. */
+const CUOTA_SEGUNDA_LISTA = 8;
+/** Formas coreanas sin licencias que se pasan por el deinflector (먹어요 a partir de meogeoyo). */
+const MAX_DESHACER_KO = 8;
+
+/**
+ * Entradas cuya lectura es la consulta romanizada: kaiseki → かいせき → 懐石, 会席, 解析…
+ *
+ * Las conversiones dan candidatos, no respuestas (ver romanizacion.ts): aquí se quedan los que
+ * existen. Si ninguno existe tal cual, se prueba a deshacer conjugaciones (tabeta → 食べる,
+ * meogeoyo → 먹다). La forma literal cuenta como coincidencia exacta y las variantes (vocal
+ * alargada, k leída como ㄱ…) van detrás.
+ */
+async function porRomanizacion(
+  q: string,
+  lookup: (palabras: string[]) => Promise<Term[]>,
+  deshacerJapones: Deshacer,
+  deshacerCoreano: Deshacer,
+  dicts: Map<number, Dictionary>,
+): Promise<Entry[]> {
+  if (q.replace(/[^a-zA-Z]/g, "").length < 2) return [];
+  const ja = candidatosJaponeses(q);
+  const ko = candidatosCoreanos(q);
+  if (!ja && !ko.length) return [];
+
+  const matched = new Set<string>();
+  const inflectedByTerm = new Map<number, Inflected>();
+  const formasJa = ja?.formas ?? [];
+  if (ja) {
+    matched.add(ja.literal);
+    matched.add(toKatakana(ja.literal));
+  }
+  for (const c of ko) if (c.penalizacion === 0) matched.add(c.hangul);
+
+  const terms = await lookup([...formasJa, ...ko.map(c => c.hangul)]);
+  const hayJa = terms.some(t => !esCoreano(t.expression));
+  const hayKo = terms.some(t => esCoreano(t.expression));
+  if (ja && !hayJa) await deshacerJapones([ja.literal, toKatakana(ja.literal)], terms, matched, inflectedByTerm);
+  if (ko.length && !hayKo) {
+    const fieles = ko.filter(c => c.penalizacion === 0).slice(0, MAX_DESHACER_KO).map(c => c.hangul);
+    // Se enseña lo tecleado: meogeoyo puede ser 머거요 o 먹어요 y no hay forma fiable de elegir.
+    await deshacerCoreano(fieles, terms, matched, inflectedByTerm, q);
+  }
+  return terms.length ? armar(terms, dicts, matched, inflectedByTerm) : [];
+}
+
+/** Une dos listas de resultados sin repetir palabra, guardando sitio a la segunda. */
+function juntar(primera: Entry[], segunda: Entry[]): Entry[] {
+  const clave = (e: Entry) => `${e.expression}\u0000${e.reading}`;
+  const enPrimera = new Set(primera.map(clave));
+  const resto = segunda.filter(e => !enPrimera.has(clave(e)));
+  const reserva = Math.min(resto.length, CUOTA_SEGUNDA_LISTA);
+  return [...primera.slice(0, MAX_ENTRIES - reserva), ...resto].slice(0, MAX_ENTRIES);
 }
 
 /**

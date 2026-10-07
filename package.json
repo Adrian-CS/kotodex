@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types scripts/test-deinflect.ts && node --experimental-strip-types scripts/test-deinflect-ko.ts && node --experimental-strip-types scripts/test-glosses.ts"
+    "test": "node --experimental-strip-types scripts/test-deinflect.ts && node --experimental-strip-types scripts/test-deinflect-ko.ts && node --experimental-strip-types scripts/test-glosses.ts && node --experimental-strip-types scripts/test-romanizacion.ts"
   },
   "dependencies": {
     "dexie": "^4.4.6",
