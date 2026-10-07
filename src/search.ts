@@ -57,11 +57,16 @@ export async function search(raw: string, soloDiccionario?: string | null): Prom
     if (!d || (soloDiccionario && d.title !== soloDiccionario)) return undefined;
     return d.role === "ja" || d.role === "es" || d.role === "en" ? d : undefined;
   };
-  const lookup = async (words: string[]): Promise<Term[]> => words.length
-    ? (await db.terms.where("expression").anyOf(words).toArray())
-        .concat(await db.terms.where("reading").anyOf(words).toArray())
-        .filter(defDict)
-    : [];
+  // Expresión y lectura a la vez: en Safari cada consulta a IndexedDB tiene una latencia fija
+  // apreciable, y en serie se suman.
+  const lookup = async (words: string[]): Promise<Term[]> => {
+    if (!words.length) return [];
+    const [porExpresion, porLectura] = await Promise.all([
+      db.terms.where("expression").anyOf(words).toArray(),
+      db.terms.where("reading").anyOf(words).toArray(),
+    ]);
+    return porExpresion.concat(porLectura).filter(defDict);
+  };
 
   /**
    * Formas de diccionario coreanas a las que se llega deshaciendo la conjugación de `formas`.
@@ -131,11 +136,14 @@ export async function search(raw: string, soloDiccionario?: string | null): Prom
   // Consulta en alfabeto latino: se busca dentro de las definiciones y, si se puede leer como
   // rōmaji o como coreano romanizado, también por lectura (kaiseki → 懐石, sarang → 사랑).
   if (esConsultaLatina(q)) {
-    const encontrados = (await porDefinicion(q)).filter(defDict);
+    // Las dos búsquedas a la vez: en serie, kaiseki tardaba el triple que una búsqueda en kanji.
+    const [encontrados, porLectura] = await Promise.all([
+      porDefinicion(q).then(ts => ts.filter(defDict)),
+      porRomanizacion(q, lookup, deshacerJapones, deshacerCoreano, dicts),
+    ]);
     const porDef = encontrados.length
       ? await armar(encontrados, dicts, new Set<string>(), new Map(), relevancia(q), undefined, undefined, true)
       : [];
-    const porLectura = await porRomanizacion(q, lookup, deshacerJapones, deshacerCoreano, dicts);
     if (!porLectura.length) return porDef;
     if (!porDef.length) return porLectura;
     // Las dos listas a la vez: «sake» es una palabra inglesa y también 酒. Va primero la de
@@ -214,11 +222,15 @@ async function porRomanizacion(
   const terms = await lookup([...formasJa, ...ko.map(c => c.hangul)]);
   const hayJa = terms.some(t => !esCoreano(t.expression));
   const hayKo = terms.some(t => esCoreano(t.expression));
-  if (ja && !hayJa) await deshacerJapones([ja.literal, toKatakana(ja.literal)], terms, matched, inflectedByTerm);
-  if (ko.length && !hayKo) {
+  // Conjugaciones solo si ningún idioma ha encontrado la palabra tal cual: si kaiseki ya es 懐石,
+  // no hay que cargar el deinflector coreano (100 KB) ni gastar otra consulta en buscar 개세기.
+  if (!hayJa && !hayKo) {
     const fieles = ko.filter(c => c.penalizacion === 0).slice(0, MAX_DESHACER_KO).map(c => c.hangul);
-    // Se enseña lo tecleado: meogeoyo puede ser 머거요 o 먹어요 y no hay forma fiable de elegir.
-    await deshacerCoreano(fieles, terms, matched, inflectedByTerm, q);
+    await Promise.all([
+      ja ? deshacerJapones([ja.literal, toKatakana(ja.literal)], terms, matched, inflectedByTerm) : undefined,
+      // Se enseña lo tecleado: meogeoyo puede ser 머거요 o 먹어요 y no hay forma fiable de elegir.
+      fieles.length ? deshacerCoreano(fieles, terms, matched, inflectedByTerm, q) : undefined,
+    ]);
   }
   return terms.length ? armar(terms, dicts, matched, inflectedByTerm) : [];
 }
