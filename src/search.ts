@@ -1,3 +1,4 @@
+import type { Table } from "dexie";
 import { db, type Dictionary, type Term } from "./db";
 import { deinflect, matchesRules, rulesMask, suruStem, VS, type Deinflection } from "./deinflect";
 import { esConsultaLatina, esJapones, glossTexts, normalizar, segmentosGlosario, tokenizar } from "./glosses";
@@ -41,6 +42,19 @@ const MIN_POR_DICCIONARIO = 3;
  * buscar 人 no llegaba a ver 사람.
  */
 const MAX_POR_DEFINICION = 4000;
+
+/**
+ * Filas cuyo índice vale exactamente alguna de las claves: una consulta por clave, en paralelo.
+ *
+ * NO usar `anyOf`: Dexie lo resuelve con un cursor que va del menor al mayor de los valores
+ * saltando entre ellos, y en Safari ese salto avanza fila a fila. Con claves dispersas (かいせき
+ * junto a candidatos en hangul) recorría medio índice: 6,7 s en el iPhone para kaiseki. Una
+ * consulta exacta por clave va directa al dato en cualquier navegador.
+ */
+async function porClaves<T>(tabla: Table<T, number>, indice: string, claves: string[]): Promise<T[]> {
+  const unicas = [...new Set(claves)];
+  return (await Promise.all(unicas.map(c => tabla.where(indice).equals(c).toArray()))).flat();
+}
 
 /** Cuánto tardó cada fase de una búsqueda, en ms. Las fases en paralelo se solapan. */
 export interface Tiempos { total: number; fases: [string, number][] }
@@ -90,8 +104,8 @@ export async function search(raw: string, soloDiccionario?: string | null, opcio
   const lookup = async (words: string[]): Promise<Term[]> => {
     if (!words.length) return [];
     const [porExpresion, porLectura] = await Promise.all([
-      db.terms.where("expression").anyOf(words).toArray(),
-      db.terms.where("reading").anyOf(words).toArray(),
+      porClaves(db.terms, "expression", words),
+      porClaves(db.terms, "reading", words),
     ]);
     return porExpresion.concat(porLectura).filter(defDict);
   };
@@ -99,7 +113,7 @@ export async function search(raw: string, soloDiccionario?: string | null, opcio
   // expresión cuando no trae otra, así que mirar también `expression` no encuentra nada nuevo y
   // en Safari duplica el coste (en la búsqueda romanizada era la fase más lenta).
   const lookupLectura = async (words: string[]): Promise<Term[]> => words.length
-    ? (await db.terms.where("reading").anyOf(words).toArray()).filter(defDict)
+    ? (await porClaves(db.terms, "reading", words)).filter(defDict)
     : [];
 
   /**
@@ -516,7 +530,7 @@ async function armar(
   const conPitch = new Set([...dicts.values()].filter(d => d.role !== "other").map(d => d.id!));
   const claves = [...new Set(sorted.flatMap(g => [g.expression, g.reading]))];
   const metas = conPitch.size
-    ? (await db.metas.where("expression").anyOf(claves).toArray())
+    ? (await porClaves(db.metas, "expression", claves))
         .filter(m => m.mode === "pitch" && conPitch.has(m.dict))
     : [];
 
