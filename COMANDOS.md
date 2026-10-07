@@ -34,6 +34,11 @@ acuérdate de tener la app de Tailscale activa.
 
 **Si el cambio toca `src/`** (buscador, interfaz, historial, diccionarios):
 
+Se despliega solo: cada push a `main` que toque la PWA lanza `.github/workflows/deploy.yml`, que
+comprueba tipos, pasa los tests, construye y publica. Si algo falla, no se publica; míralo en la
+pestaña Actions de GitHub. Para relanzarlo sin push: Actions → «Desplegar en Cloudflare Pages» →
+Run workflow. A mano, por si GitHub falla:
+
 ```powershell
 cd C:\dev\kotodex
 npm run build
@@ -52,14 +57,13 @@ En el iPhone la PWA se actualiza sola al abrirla. Si sigue con lo viejo, ciérra
 
 ```powershell
 cd C:\dev\kotodex\server
-.\deploy\windows
-estart-kotodex.ps1
+.\deploy\windows\restart-kotodex.ps1
 ```
 
 **Si cambia algo del audio** (voz, fuente), borra también la caché o seguirás oyendo lo anterior:
 
 ```powershell
-Remove-Item C:\dev\kotodex\server\dataudio-cache -Recurse -Force
+Remove-Item C:\dev\kotodex\server\data\audio-cache -Recurse -Force
 ```
 
 **Comprobar antes de desplegar**, siempre:
@@ -68,7 +72,7 @@ Remove-Item C:\dev\kotodex\server\dataudio-cache -Recurse -Force
 cd C:\dev\kotodex
 npx tsc -p . --noEmit
 npm test
-cd server; $env:PYTHONPATH="."; .env\Scripts\python.exe -m pytest tests -q
+cd server; $env:PYTHONPATH="."; .\venv\Scripts\python.exe -m pytest tests -q
 ```
 
 ## Voces de VOICEVOX
@@ -292,7 +296,7 @@ curl.exe -H "Authorization: Bearer $t" http://127.0.0.1:8000/decks
 ```powershell
 cd C:\dev\kotodex\server
 .\deploy\windows\clone-desktop-collection.ps1      # copia la de escritorio: minutos
-.env\Scripts\python.exe deployirst-sync.py     # alternativa: descargar de AnkiWeb, horas
+.\venv\Scripts\python.exe deploy\first-sync.py     # alternativa: descargar de AnkiWeb, horas
 ```
 
 **Backup.** El respaldo de verdad es AnkiWeb (`/sync`). Para una copia local hay que **parar el
