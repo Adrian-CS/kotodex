@@ -198,7 +198,32 @@ button.text { border: 0; background: none; padding: 0 8px; height: 36px; }
 .hoja-kanji::backdrop { background: rgb(0 0 0 / 0.35); }
 .hoja-contenido { padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
 .hoja-cabecera { text-align: center; }
+.hoja-kanji-fila { display: flex; justify-content: center; align-items: flex-start; gap: 20px; }
 .hoja-kanji-grande { font-family: var(--mincho); font-size: 96px; line-height: 1.2; }
+
+/* Orden de trazos (KanjiVG). Trazos en tinta, números y guía en gris. Al animar, cada trazo empieza
+   oculto (dashoffset 1 con pathLength 1) y se dibuja con su retraso; los números aparecen a la vez. */
+.trazos { margin: 0; display: flex; flex-direction: column; align-items: center; }
+.trazos-svg { width: 132px; height: 132px; border: 1px solid var(--rule); border-radius: 8px; }
+.trazos-guia { stroke: var(--rule); stroke-width: 0.5; stroke-dasharray: 2 2; fill: none; }
+.trazos-trazo { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.trazos-numero { fill: var(--muted); font-size: 8px; font-family: var(--sans); }
+/* Opacidad 0 hasta su turno: con los extremos redondeados, un trazo «vacío» deja un punto visible. */
+.animando .trazos-trazo { stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0; animation: trazo-dibuja linear both; }
+.animando .trazos-numero { opacity: 0; animation: trazo-numero 0s linear forwards; }
+/* El 0 % se aplica durante la espera (fill-mode both): ahí tiene que ser invisible. */
+@keyframes trazo-dibuja {
+  0% { stroke-dashoffset: 1; opacity: 0; }
+  1% { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+@keyframes trazo-numero { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .animando .trazos-trazo, .animando .trazos-numero { animation-duration: 0s !important; }
+}
+.trazos figcaption { display: flex; flex-direction: column; align-items: center; }
+.trazos-fuente { font-size: 11px; color: var(--muted); }
+.trazos-aviso { max-width: 150px; font-size: 12px; text-align: left; }
 .hoja-datos { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
 .hoja-lecturas { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0 0 12px; }
 .hoja-lecturas dt { color: var(--muted); font-size: 13px; font-weight: 600; padding-top: 3px; }

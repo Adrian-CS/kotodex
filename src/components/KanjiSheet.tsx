@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { fichaKanji, palabrasConKanji, partirOkurigana, type FichaKanji, type PalabraConKanji } from "../kanji";
 import type { T } from "../i18n";
+import { KanjiTrazos } from "./KanjiTrazos";
 
 interface Props {
   /** El kanji a enseñar; null = hoja cerrada. */
@@ -62,7 +63,10 @@ export function KanjiSheet({ kanji, onClose, onBuscar, t }: Props) {
       {kanji && (
         <div className="hoja-contenido">
           <header className="hoja-cabecera">
-            <div className="hoja-kanji-grande" lang="ja">{kanji}</div>
+            <div className="hoja-kanji-fila">
+              <div className="hoja-kanji-grande" lang="ja">{kanji}</div>
+              <KanjiTrazos kanji={kanji} t={t} />
+            </div>
             {datos.length > 0 && <p className="hoja-datos">{datos.join(" · ")}</p>}
           </header>
 

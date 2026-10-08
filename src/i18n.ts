@@ -53,6 +53,10 @@ const es = {
   "kanji.words": "Palabras que empiezan por {kanji}",
   "kanji.missing": "Ningún diccionario de kanji activo trae este kanji.",
   "kanji.close": "Cerrar",
+  "kanji.strokeOrder": "Orden de trazos de {kanji}",
+  "kanji.playStrokes": "Ver trazos",
+  "kanji.strokesSource": "Trazos: KanjiVG",
+  "kanji.strokesOffline": "Sin conexión: los trazos se descargan la primera vez que abres cada kanji.",
 
   "entry.ja": "国語",
   "entry.es": "Español",
@@ -186,6 +190,10 @@ const en: Record<Claves, string> = {
   "kanji.words": "Words starting with {kanji}",
   "kanji.missing": "No active kanji dictionary has this kanji.",
   "kanji.close": "Close",
+  "kanji.strokeOrder": "Stroke order for {kanji}",
+  "kanji.playStrokes": "Play strokes",
+  "kanji.strokesSource": "Strokes: KanjiVG",
+  "kanji.strokesOffline": "Offline: stroke order is downloaded the first time you open each kanji.",
 
   "entry.ja": "国語",
   "entry.es": "Español",
@@ -317,6 +325,10 @@ const ja: Record<Claves, string> = {
   "kanji.words": "{kanji}で始まる語",
   "kanji.missing": "有効な漢字辞書にこの漢字はありません。",
   "kanji.close": "閉じる",
+  "kanji.strokeOrder": "{kanji}の筆順",
+  "kanji.playStrokes": "筆順を再生",
+  "kanji.strokesSource": "筆順: KanjiVG",
+  "kanji.strokesOffline": "オフラインです。筆順は各漢字を初めて開いたときにダウンロードされます。",
 
   "entry.ja": "国語",
   "entry.es": "Español",

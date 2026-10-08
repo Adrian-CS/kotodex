@@ -116,6 +116,11 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   diccionario de kanji activo. «Palabras» son las que EMPIEZAN por el kanji (rango del índice); «contiene» exigiría
   recorrer la tabla o indexar los kanji al importar. El JLPT de KANJIDIC es el antiguo (1–4); el actual (N5–N1) sale de `src/jlpt.ts`,
   las listas de Waller (no hay oficiales desde 2010), y el antiguo solo se enseña si el kanji no está en ellas.
+- `src/trazos.ts` + `components/KanjiTrazos.tsx` — orden de trazos de KanjiVG (CC BY-SA): el SVG de cada kanji se
+  pide a raw.githubusercontent.com (CORS abierto) al abrir su ficha y se guarda con la Cache API (`kanjivg-v1`), así
+  que lo ya visto va sin conexión. Solo se extraen los `d` y la posición de los números; nunca se inserta el SVG
+  descargado. Animación CSS con `pathLength=1`; cada trazo con opacidad 0 hasta su turno (si no, el extremo
+  redondeado deja un punto).
 - `src/history.ts` + `components/HistoryView.tsx` — historial indexado por la palabra a la que se llega, no por
   lo tecleado: buscar 食べた y 食べる deja una entrada. Si la consulta nueva empieza por la anterior y han pasado
   menos de 2 min, sustituye a la anterior (escribir 食べる no deja 食, 食べ y 食べる).
