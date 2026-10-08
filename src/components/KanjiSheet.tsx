@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { fichaKanji, palabrasConKanji, partirOkurigana, type FichaKanji, type PalabraConKanji } from "../kanji";
+import { esKanji, fichaKanji, palabrasConKanji, partirOkurigana, type FichaKanji, type PalabraConKanji } from "../kanji";
+import { radicalKangxi } from "../radicales";
+import { trazosKanji, type Trazos } from "../trazos";
 import type { T } from "../i18n";
 import { KanjiTrazos } from "./KanjiTrazos";
 
@@ -9,6 +11,11 @@ interface Props {
   onClose: () => void;
   /** Buscar una palabra de la lista: cierra la hoja y la pone en la barra de búsqueda. */
   onBuscar: (palabra: string) => void;
+  /** Abrir la ficha de un componente (懐 → 心) sin cerrar la hoja. */
+  onKanji: (kanji: string) => void;
+  /** El kanji desde el que se llegó, si se navegó por componentes: permite volver. */
+  anterior?: string;
+  onVolver: () => void;
   t: T;
 }
 
@@ -19,10 +26,12 @@ function textoGrado(grado: number, t: T): string {
   return t("kanji.gradeNames");
 }
 
-export function KanjiSheet({ kanji, onClose, onBuscar, t }: Props) {
+export function KanjiSheet({ kanji, onClose, onBuscar, onKanji, anterior, onVolver, t }: Props) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [ficha, setFicha] = useState<FichaKanji | null | undefined>(undefined);
   const [palabras, setPalabras] = useState<PalabraConKanji[]>([]);
+  // Radical y componentes vienen del mismo SVG de KanjiVG que los trazos (misma promesa en memoria).
+  const [estructura, setEstructura] = useState<Trazos | null>(null);
 
   // <dialog> nativo: en iOS trae el fondo, el foco y cerrar con gestos sin escribir nada.
   useEffect(() => {
@@ -35,10 +44,14 @@ export function KanjiSheet({ kanji, onClose, onBuscar, t }: Props) {
   useEffect(() => {
     setFicha(undefined);
     setPalabras([]);
+    setEstructura(null);
     if (!kanji) return;
+    // Al saltar a un componente, la hoja ya estaba abierta y desplazada: se vuelve arriba.
+    dialogo.current?.scrollTo({ top: 0 });
     let cancelado = false;
     fichaKanji(kanji).then(f => { if (!cancelado) setFicha(f); });
     palabrasConKanji(kanji).then(p => { if (!cancelado) setPalabras(p); });
+    trazosKanji(kanji).then(e => { if (!cancelado) setEstructura(e); }).catch(() => {});
     return () => { cancelado = true; };
   }, [kanji]);
 
@@ -51,6 +64,15 @@ export function KanjiSheet({ kanji, onClose, onBuscar, t }: Props) {
     ficha.freq !== undefined && t("kanji.freq", { rank: ficha.freq }),
   ].filter(Boolean) : [];
 
+  // El radical con su número Kangxi: el de la variante (忄) se busca por su forma completa (心).
+  const radical = estructura?.radical;
+  const kangxi = radical ? radicalKangxi(radical.original ?? radical.caracter) : undefined;
+  // Un carácter es tocable si es kanji y no es el que ya está abierto.
+  const tocable = (c: string) => esKanji(c) && c !== kanji;
+  const parte = (c: string) => tocable(c)
+    ? <button key={c} className="hoja-parte" onClick={() => onKanji(c)} aria-label={t("kanji.open", { kanji: c })}>{c}</button>
+    : <span key={c} className="hoja-parte">{c}</span>;
+
   return (
     <dialog
       ref={dialogo}
@@ -62,6 +84,9 @@ export function KanjiSheet({ kanji, onClose, onBuscar, t }: Props) {
     >
       {kanji && (
         <div className="hoja-contenido">
+          {anterior && (
+            <button className="text hoja-volver" onClick={onVolver}>{t("kanji.back", { kanji: anterior })}</button>
+          )}
           <header className="hoja-cabecera">
             <div className="hoja-kanji-fila">
               <div className="hoja-kanji-grande" lang="ja">{kanji}</div>
@@ -94,6 +119,22 @@ export function KanjiSheet({ kanji, onClose, onBuscar, t }: Props) {
                       );
                     })}
                   </dd>
+                </>
+              )}
+              {radical && (
+                <>
+                  <dt>{t("kanji.radical")}</dt>
+                  <dd className="hoja-radical">
+                    {parte(radical.caracter)}
+                    {radical.original && radical.original !== radical.caracter && <>（{parte(radical.original)}）</>}
+                    {kangxi && <span className="hoja-radical-nombre" lang="en">{t("kanji.radicalInfo", { n: kangxi.numero, name: kangxi.nombre })}</span>}
+                  </dd>
+                </>
+              )}
+              {estructura && estructura.componentes.length > 1 && (
+                <>
+                  <dt>{t("kanji.parts")}</dt>
+                  <dd className="hoja-partes">{estructura.componentes.map(parte)}</dd>
                 </>
               )}
             </dl>

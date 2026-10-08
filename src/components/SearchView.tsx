@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, entryKey } from "../db";
 import { recordSearch } from "../history";
@@ -58,8 +58,11 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
   );
   const dictCount = dictHuella === undefined ? undefined : (dictHuella ? dictHuella.split("|").length : 0);
   const requestId = useRef(0);
-  // Kanji cuya ficha está abierta. Solo se ofrece si hay algún diccionario de kanji activo.
-  const [kanji, setKanji] = useState<string | null>(null);
+  // Fichas de kanji abiertas, como una pila: tocar un componente (懐 → 心) apila y «volver» desapila.
+  // Solo se ofrecen si hay algún diccionario de kanji activo.
+  const [pilaKanji, setPilaKanji] = useState<string[]>([]);
+  const abrirKanji = useCallback((k: string) => setPilaKanji([k]), []);
+  const kanji = pilaKanji.at(-1) ?? null;
   const conKanji = useLiveQuery(() => hayDiccionarioKanji(), [dictHuella]);
 
   // Qué fichas ya se añadieron, en UNA consulta para todas. Antes cada ficha tenía la suya, y eran
@@ -187,7 +190,7 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
           setSettings={setSettings}
           inCollection={dupes.get(entryKey(e.expression, e.reading))}
           added={anadidas?.get(entryKey(e.expression, e.reading))}
-          onKanji={conKanji ? setKanji : undefined}
+          onKanji={conKanji ? abrirKanji : undefined}
           t={t}
           idioma={idioma}
         />
@@ -195,8 +198,11 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
 
       <KanjiSheet
         kanji={kanji}
-        onClose={() => setKanji(null)}
-        onBuscar={palabra => { setKanji(null); setQuery(palabra); }}
+        anterior={pilaKanji.at(-2)}
+        onClose={() => setPilaKanji([])}
+        onBuscar={palabra => { setPilaKanji([]); setQuery(palabra); }}
+        onKanji={k => setPilaKanji(p => [...p, k])}
+        onVolver={() => setPilaKanji(p => p.slice(0, -1))}
         t={t}
       />
     </div>

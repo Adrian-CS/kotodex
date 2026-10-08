@@ -243,3 +243,13 @@ button.text { border: 0; background: none; padding: 0 8px; height: 36px; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .hoja-cerrar { width: 100%; margin-top: 16px; }
+
+/* Radical y partes del kanji (de KanjiVG). Cada parte que es kanji se toca para abrir su ficha. */
+.hoja-radical, .hoja-partes { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.hoja-parte {
+  height: auto; min-width: 36px; padding: 2px 6px; border: 1px solid var(--rule); border-radius: 8px;
+  background: var(--paper); font-family: var(--mincho); font-size: 20px; line-height: 1.4; text-align: center;
+}
+span.hoja-parte { border-style: dashed; }
+.hoja-radical-nombre { color: var(--muted); font-size: 14px; }
+.hoja-volver { margin: -4px 0 4px -8px; }

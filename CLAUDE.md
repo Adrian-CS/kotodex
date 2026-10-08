@@ -121,6 +121,10 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   que lo ya visto va sin conexión. Solo se extraen los `d` y la posición de los números; nunca se inserta el SVG
   descargado. Animación CSS con `pathLength=1`; cada trazo con opacidad 0 hasta su turno (si no, el extremo
   redondeado deja un punto).
+- Radical y partes: del MISMO SVG de KanjiVG (`kvg:radical="general"`, `kvg:original` para variantes 忄→心; partes =
+  grupos con `kvg:element` hijos directos del kanji). Número y nombre del radical en `src/radicales.ts`, generado con
+  Python desde Unicode (NFKC de U+2F00–2FD5 + nombre oficial). Las partes se tocan y apilan fichas (`pilaKanji`
+  en SearchView) con «← Volver».
 - `src/history.ts` + `components/HistoryView.tsx` — historial indexado por la palabra a la que se llega, no por
   lo tecleado: buscar 食べた y 食べる deja una entrada. Si la consulta nueva empieza por la anterior y han pasado
   menos de 2 min, sustituye a la anterior (escribir 食べる no deja 食, 食べ y 食べる).

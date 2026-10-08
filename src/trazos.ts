@@ -15,6 +15,13 @@ export interface Trazos {
   trazos: string[];
   /** Dónde va el número de cada trazo (coordenadas del viewBox 109×109). */
   numeros: { x: number; y: number }[];
+  /**
+   * El radical según KanjiVG (kvg:radical). `original` es la forma completa cuando el radical
+   * aparece como variante: 忄 → 心, 氵 → 水. Falta en algún kanji raro que KanjiVG no anota.
+   */
+  radical?: { caracter: string; original?: string };
+  /** Las partes de primer nivel: 懐 → 忄, 十, 罒, 衣 (亠 va dentro de 衣 y no se repite). */
+  componentes: string[];
 }
 
 const enMemoria = new Map<string, Promise<Trazos | null>>();
@@ -50,7 +57,36 @@ function leer(svg: string): Trazos | null {
     const m = (t.getAttribute("transform") ?? "").match(/matrix\(1 0 0 1 ([\d.]+) ([\d.]+)\)/);
     return m ? { x: Number(m[1]), y: Number(m[2]) } : null;
   }).filter((n): n is { x: number; y: number } => n !== null);
-  return { trazos, numeros: numeros.length === trazos.length ? numeros : [] };
+  return { trazos, numeros: numeros.length === trazos.length ? numeros : [], ...estructura(doc) };
+}
+
+/**
+ * Radical y componentes, de los <g kvg:element="…"> anidados de KanjiVG.
+ *
+ * Componente = grupo con elemento cuyo antecesor con elemento más cercano es el kanji entero. Así
+ * 懐 da 忄, 十, 罒 y 衣, y no 亠, que es parte de 衣. Para el radical manda «general» (el de los
+ * diccionarios actuales); «tradit» y «nelson» solo si no hay otro.
+ */
+function estructura(doc: Document): Pick<Trazos, "radical" | "componentes"> {
+  const grupos = [...doc.querySelectorAll("g")].filter(g => g.getAttribute("kvg:element"));
+  const raiz = grupos[0];
+  if (!raiz) return { componentes: [] };
+
+  const antecesorConElemento = (g: Element): Element | null => {
+    for (let p: Element | null = g.parentElement; p; p = p.parentElement) if (p.getAttribute("kvg:element")) return p;
+    return null;
+  };
+  const componentes = [...new Set(grupos
+    .filter(g => g !== raiz && antecesorConElemento(g) === raiz)
+    .map(g => g.getAttribute("kvg:element")!))];
+
+  const conRadical = (tipo: string) => grupos.find(g => g.getAttribute("kvg:radical") === tipo);
+  const g = conRadical("general") ?? conRadical("tradit") ?? conRadical("nelson");
+  const radical = g ? {
+    caracter: g.getAttribute("kvg:element")!,
+    original: g.getAttribute("kvg:original") ?? undefined,
+  } : undefined;
+  return { radical, componentes };
 }
 
 /**
