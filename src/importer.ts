@@ -1,5 +1,5 @@
 import { unzip } from "fflate";
-import { db, type Dictionary, type Role, type Term, type TermMeta } from "./db";
+import { db, type Dictionary, type Kanji, type Role, type Term, type TermMeta } from "./db";
 import { indexWords } from "./glosses";
 
 export interface ImportProgress { stage: string; done: number; total: number }
@@ -10,15 +10,15 @@ const unzipJson = (buf: Uint8Array) =>
 
 const bankNumber = (name: string) => Number(name.match(/(\d+)\.json$/)?.[1] ?? 0);
 
-function guessRole(title: string, hasTerms: boolean, pitchRows: number): Role {
-  if (!hasTerms) return pitchRows > 0 ? "pitch" : "other";
+function guessRole(title: string, hasTerms: boolean, pitchRows: number, kanjiRows: number): Role {
+  if (!hasTerms) return pitchRows > 0 ? "pitch" : kanjiRows > 0 ? "kanji" : "other";
   if (/jmdict|jitendex/i.test(title)) {
     return /(spa|español|espanol|spanish)/i.test(title) ? "es" : "en";
   }
   return "ja";
 }
 
-/** Importa un .zip en formato Yomitan (term_bank_*.json y/o term_meta_bank_*.json). */
+/** Importa un .zip en formato Yomitan (term_bank, term_meta_bank y/o kanji_bank). */
 export async function importDictionary(file: File, onProgress: (p: ImportProgress) => void): Promise<Dictionary> {
   onProgress({ stage: "Descomprimiendo", done: 0, total: 1 });
   const files = await unzipJson(new Uint8Array(await file.arrayBuffer()));
@@ -35,7 +35,10 @@ export async function importDictionary(file: File, onProgress: (p: ImportProgres
   const names = Object.keys(files);
   const termBanks = names.filter(n => /^term_bank_\d+\.json$/.test(n)).sort((a, b) => bankNumber(a) - bankNumber(b));
   const metaBanks = names.filter(n => /^term_meta_bank_\d+\.json$/.test(n)).sort((a, b) => bankNumber(a) - bankNumber(b));
-  if (!termBanks.length && !metaBanks.length) throw new Error(`«${title}» no contiene términos ni datos de pitch.`);
+  const kanjiBanks = names.filter(n => /^kanji_bank_\d+\.json$/.test(n)).sort((a, b) => bankNumber(a) - bankNumber(b));
+  if (!termBanks.length && !metaBanks.length && !kanjiBanks.length) {
+    throw new Error(`«${title}» no contiene términos, datos de pitch ni kanji.`);
+  }
 
   // Se añade al final de la lista de prioridad.
   const ordenes = (await db.dictionaries.toArray()).map(d => d.order ?? 0);
@@ -45,8 +48,8 @@ export async function importDictionary(file: File, onProgress: (p: ImportProgres
     order: ordenes.length ? Math.max(...ordenes) + 1 : 0,
   });
 
-  const total = termBanks.length + metaBanks.length;
-  let done = 0, termCount = 0, metaCount = 0, pitchRows = 0;
+  const total = termBanks.length + metaBanks.length + kanjiBanks.length;
+  let done = 0, termCount = 0, metaCount = 0, pitchRows = 0, kanjiCount = 0;
 
   try {
     for (const name of termBanks) {
@@ -82,13 +85,30 @@ export async function importDictionary(file: File, onProgress: (p: ImportProgres
       metaCount += metas.length;
       done++;
     }
+    for (const name of kanjiBanks) {
+      onProgress({ stage: `Importando «${title}»`, done, total });
+      const rows: any[] = JSON.parse(decoder.decode(files[name]));
+      delete files[name];
+      const kanji: Kanji[] = rows.map(r => ({
+        dict: dictId,
+        character: r[0],
+        onyomi: r[1] ?? "",
+        kunyomi: r[2] ?? "",
+        tags: r[3] ?? "",
+        meanings: Array.isArray(r[4]) ? r[4].map(String) : [],
+        stats: r[5] && typeof r[5] === "object" ? r[5] : {},
+      }));
+      await db.kanji.bulkAdd(kanji);
+      kanjiCount += kanji.length;
+      done++;
+    }
   } catch (e) {
     await deleteDictionary(dictId);
     throw e;
   }
 
-  const role = guessRole(title, termCount > 0, pitchRows);
-  await db.dictionaries.update(dictId, { terms: termCount, metas: metaCount, pitches: pitchRows, role });
+  const role = guessRole(title, termCount > 0, pitchRows, kanjiCount);
+  await db.dictionaries.update(dictId, { terms: termCount, metas: metaCount, pitches: pitchRows, kanji: kanjiCount, role });
   navigator.storage?.persist?.().catch(() => {});
   onProgress({ stage: "Listo", done: total, total });
   return (await db.dictionaries.get(dictId))!;
@@ -122,6 +142,13 @@ export async function deleteDictionary(id: number, onProgress?: (borrados: numbe
     const claves = await db.metas.where("dict").equals(id).limit(LOTE_BORRADO).primaryKeys();
     if (!claves.length) break;
     await db.metas.bulkDelete(claves as number[]);
+    borrados += claves.length;
+    onProgress?.(borrados);
+  }
+  for (;;) {
+    const claves = await db.kanji.where("dict").equals(id).limit(LOTE_BORRADO).primaryKeys();
+    if (!claves.length) break;
+    await db.kanji.bulkDelete(claves as number[]);
     borrados += claves.length;
     onProgress?.(borrados);
   }

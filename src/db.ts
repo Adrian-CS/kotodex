@@ -1,7 +1,10 @@
 import Dexie, { type Table } from "dexie";
 
-/** Qué papel tiene cada diccionario en la tarjeta. "other" = importado pero ignorado. */
-export type Role = "ja" | "es" | "en" | "pitch" | "other";
+/**
+ * Qué papel tiene cada diccionario en la tarjeta. "other" = importado pero ignorado.
+ * "kanji" = diccionario de kanji (KANJIDIC): no aporta definiciones, solo la ficha de cada kanji.
+ */
+export type Role = "ja" | "es" | "en" | "pitch" | "kanji" | "other";
 
 export interface Dictionary {
   id?: number;
@@ -12,6 +15,8 @@ export interface Dictionary {
   metas: number;
   /** Cuántas entradas de pitch trae. Falta en lo importado antes de contarlo. */
   pitches?: number;
+  /** Cuántos kanji trae (kanji_bank). Falta en lo importado antes de leerlos. */
+  kanji?: number;
   /** Prioridad elegida por el usuario: decide qué definición sale antes. Menor = primero. */
   order?: number;
   importedAt: number;
@@ -32,6 +37,22 @@ export interface Term {
   words?: string[];
   score: number;
   sequence: number;
+}
+
+/**
+ * Fila de kanji_bank de Yomitan: [kanji, onyomi, kunyomi, tags, significados[], estadísticas{}].
+ * Las lecturas vienen separadas por espacios y el okurigana tras un punto: なつ.かしい.
+ */
+export interface Kanji {
+  id?: number;
+  dict: number;
+  character: string;
+  onyomi: string;
+  kunyomi: string;
+  tags: string;
+  meanings: string[];
+  /** strokes, grade, jlpt, freq… y decenas de índices de libros. Todo cadenas. */
+  stats: Record<string, string>;
 }
 
 /** Fila de term_meta_bank (pitch, freq…). */
@@ -69,6 +90,7 @@ class JpDictDB extends Dexie {
   metas!: Table<TermMeta, number>;
   added!: Table<Added, string>;
   lookups!: Table<Lookup, string>;
+  kanji!: Table<Kanji, number>;
 
   constructor() {
     super("jp-dict");
@@ -93,6 +115,10 @@ class JpDictDB extends Dexie {
     // tienen el campo, así que quedan fuera del índice: hay que reimportar para buscar en ellos.
     this.version(4).stores({
       terms: "++id, dict, expression, reading, *words",
+    });
+    // v5 añade los diccionarios de kanji. Tabla nueva: no toca nada de lo ya importado.
+    this.version(5).stores({
+      kanji: "++id, dict, character",
     });
   }
 }

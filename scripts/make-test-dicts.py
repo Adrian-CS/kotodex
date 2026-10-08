@@ -2,11 +2,12 @@
 import json, zipfile, pathlib
 out = pathlib.Path("test-dicts"); out.mkdir(exist_ok=True)
 
-def mk(name, title, terms=None, metas=None):
+def mk(name, title, terms=None, metas=None, kanji=None):
     with zipfile.ZipFile(out / name, "w") as z:
         z.writestr("index.json", json.dumps({"title": title, "revision": "test", "format": 3}, ensure_ascii=False))
         if terms: z.writestr("term_bank_1.json", json.dumps(terms, ensure_ascii=False))
         if metas: z.writestr("term_meta_bank_1.json", json.dumps(metas, ensure_ascii=False))
+        if kanji: z.writestr("kanji_bank_1.json", json.dumps(kanji, ensure_ascii=False))
 
 mk("jmdict_en.zip", "JMdict (English)", [
     ["橋", "はし", "n", "", 100, ["bridge"], 1, ""],
@@ -48,5 +49,12 @@ mk("pitch.zip", "Kanjium pitch", None, [
     ["食べる", "pitch", {"reading": "たべる", "pitches": [{"position": 2}]}],
     ["読む", "pitch", {"reading": "よむ", "pitches": [{"position": 1}]}],
     ["高い", "pitch", {"reading": "たかい", "pitches": [{"position": 2}]}],
+])
+# Formato de KANJIDIC: [kanji, onyomi, kunyomi, tags, significados, estadísticas].
+mk("kanji.zip", "KANJIDIC (test)", kanji=[
+    ["橋", "キョウ", "はし", "jouyou", ["bridge"], {"strokes": "16", "grade": "3", "jlpt": "2", "freq": "1197"}],
+    ["今", "コン キン", "いま", "jouyou", ["now"], {"strokes": "4", "grade": "2", "jlpt": "4", "freq": "49"}],
+    ["日", "ニチ ジツ", "ひ -び -か", "jouyou", ["day", "sun", "Japan"], {"strokes": "4", "grade": "1", "jlpt": "4", "freq": "1"}],
+    ["食", "ショク ジキ", "く.う く.らう た.べる は.む", "jouyou", ["eat", "food"], {"strokes": "9", "grade": "2", "jlpt": "4", "freq": "328"}],
 ])
 print("OK →", out.resolve())

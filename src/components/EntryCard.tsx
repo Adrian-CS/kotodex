@@ -6,6 +6,7 @@ import type { Settings } from "../settings";
 import { ankiMobileUrl, buildFields } from "../anki";
 import { addNote, ServerError, type WordCheck } from "../server";
 import { razonDeinflexion, type Idioma, type T } from "../i18n";
+import { esKanji } from "../kanji";
 
 const IDIOMA_DE: Record<DefRole, string> = { ja: "ja", es: "es", en: "en" };
 
@@ -23,6 +24,8 @@ interface Props {
   inCollection?: WordCheck;
   /** Si ya se añadió desde aquí. Lo consulta SearchView para todas las fichas de una vez. */
   added?: Added;
+  /** Abre la ficha de un kanji. Sin ella (no hay diccionario de kanji) los kanji no se pueden tocar. */
+  onKanji?: (kanji: string) => void;
   t: T;
   idioma: Idioma;
 }
@@ -31,7 +34,7 @@ interface Props {
  * Memorizada: cada tecla vuelve a pintar SearchView, y sin esto las 20 fichas de la búsqueda
  * anterior se repintaban enteras con cada letra (en el iPhone se notaba al escribir en rōmaji).
  */
-export const EntryCard = memo(function EntryCard({ entry, settings, setSettings, inCollection, added, t, idioma }: Props) {
+export const EntryCard = memo(function EntryCard({ entry, settings, setSettings, inCollection, added, onKanji, t, idioma }: Props) {
   const key = entryKey(entry.expression, entry.reading);
   const deck = settings.decks.includes(settings.lastDeck) ? settings.lastDeck : settings.decks[0] ?? "";
   const showReading = entry.reading !== entry.expression;
@@ -76,7 +79,13 @@ export const EntryCard = memo(function EntryCard({ entry, settings, setSettings,
           </p>
         )}
         {showReading && <div className="entry-reading" lang="ja">{entry.reading}</div>}
-        <h2 className="entry-word" lang="ja">{entry.expression}</h2>
+        <h2 className="entry-word" lang="ja">
+          {onKanji
+            ? [...entry.expression].map((c, i) => esKanji(c)
+              ? <button key={i} className="kanji-tocable" onClick={() => onKanji(c)} aria-label={t("kanji.open", { kanji: c })}>{c}</button>
+              : c)
+            : entry.expression}
+        </h2>
       </header>
 
       {entry.pitches.length > 0 && (

@@ -179,3 +179,42 @@ button.text { border: 0; background: none; padding: 0 8px; height: 36px; }
   font-size: 11px; color: var(--accent); border: 1px solid var(--accent);
   border-radius: 6px; padding: 1px 5px; white-space: nowrap;
 }
+
+/* Kanji del término que se pueden tocar para ver su ficha. Subrayado punteado en el color de las
+   reglas: se ve que hay algo, sin competir con el término. */
+.kanji-tocable {
+  height: auto; padding: 0; border: 0; border-radius: 6px; background: none;
+  font: inherit; letter-spacing: inherit; color: inherit;
+  text-decoration: underline dotted var(--rule); text-decoration-thickness: 2px; text-underline-offset: 8px;
+}
+.kanji-tocable:active { background: var(--rule); }
+
+/* Ficha de un kanji: hoja que sube desde abajo, como en las apps de diccionario del iPhone. */
+.hoja-kanji {
+  width: 100%; max-width: 640px; max-height: 85vh; margin: auto auto 0; padding: 0;
+  border: 0; border-radius: 16px 16px 0 0; background: var(--sheet); color: var(--ink);
+  overflow: auto; overscroll-behavior: contain;
+}
+.hoja-kanji::backdrop { background: rgb(0 0 0 / 0.35); }
+.hoja-contenido { padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
+.hoja-cabecera { text-align: center; }
+.hoja-kanji-grande { font-family: var(--mincho); font-size: 96px; line-height: 1.2; }
+.hoja-datos { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+.hoja-lecturas { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0 0 12px; }
+.hoja-lecturas dt { color: var(--muted); font-size: 13px; font-weight: 600; padding-top: 3px; }
+.hoja-lecturas dd { margin: 0; font-size: 18px; }
+.okurigana { color: var(--muted); }
+.hoja-significados p { margin: 0 0 12px; }
+.hoja-palabras ul { list-style: none; margin: 0; padding: 0; }
+.hoja-palabras li + li { border-top: 1px solid var(--rule); }
+.hoja-palabra {
+  display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 0 10px;
+  width: 100%; height: auto; padding: 10px 0; border: 0; border-radius: 0; background: none; text-align: left;
+}
+.hoja-palabra-termino { font-family: var(--mincho); font-size: 20px; }
+.hoja-palabra-lectura { color: var(--muted); font-size: 13px; }
+.hoja-palabra-def {
+  grid-column: 1 / -1; color: var(--muted); font-size: 14px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hoja-cerrar { width: 100%; margin-top: 16px; }

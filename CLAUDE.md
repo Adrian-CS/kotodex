@@ -111,6 +111,10 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   term_bank; si el diccionario no lo trae (monolingües), acepta. `suruStem()` cubre 勉強しました → 勉強 (rules `vs`).
 - `src/pitch.ts` — moras (kana pequeños se unen; っ ん ー cuentan), patrón H/L + partícula, SVG. Probado 平板/頭高/中高/尾高.
 - `src/anki.ts` — `buildFields(entry)` y `ankiMobileUrl()`. Ojo: se reemplaza `+`→`%20` (un `+` real ya va como `%2B`).
+- `src/kanji.ts` + `components/KanjiSheet.tsx` — ficha de kanji desde diccionarios `kanji_bank` (KANJIDIC de
+  yomidevs/jmdict-yomitan; rol «kanji», tabla `kanji` de Dexie v5). Los kanji del término se tocan si hay algún
+  diccionario de kanji activo. «Palabras» son las que EMPIEZAN por el kanji (rango del índice); «contiene» exigiría
+  recorrer la tabla o indexar los kanji al importar. El JLPT de KANJIDIC es el antiguo (1–4): se rotula así.
 - `src/history.ts` + `components/HistoryView.tsx` — historial indexado por la palabra a la que se llega, no por
   lo tecleado: buscar 食べた y 食べる deja una entrada. Si la consulta nueva empieza por la anterior y han pasado
   menos de 2 min, sustituye a la anterior (escribir 食べる no deja 食, 食べ y 食べる).
@@ -159,7 +163,8 @@ sistema). Tres decisiones:
 ```bash
 npm install && python3 scripts/make-test-dicts.py && npm run dev
 ```
-Importar los 4 zips de `test-dicts/`, buscar はし (3 entradas, pitches [2],[1],[0]) y 今日 (dos pitches [1],[0], con ES).
+Importar los 5 zips de `test-dicts/`, buscar はし (3 entradas, pitches [2],[1],[0]) y 今日 (dos pitches [1],[0], con ES).
+Tocar 食 en 食べる abre su ficha (ショク・ジキ, た.べる, 9 trazos) con 食べる en «Palabras que empiezan por 食».
 Conjugaciones: 食べた, 食べさせられた, たべている, 読まなかった, 高くない, 勉強しました → todas deben caer en su forma de
 diccionario con la razón debajo del término. `npx tsc -p .` y `npm test` deben salir limpios.
 Para verificar UI móvil: Playwright a 390×844.

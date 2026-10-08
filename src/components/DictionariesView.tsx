@@ -9,6 +9,7 @@ const ROLES: { value: Role; clave: "role.ja" }[] = [
   { value: "es", clave: "role.es" as "role.ja" },
   { value: "en", clave: "role.en" as "role.ja" },
   { value: "pitch", clave: "role.pitch" as "role.ja" },
+  { value: "kanji", clave: "role.kanji" as "role.ja" },
   { value: "other", clave: "role.other" as "role.ja" },
 ];
 
@@ -114,6 +115,7 @@ export function DictionariesView({ t, locale }: Props) {
                 // Saber si un diccionario trae pitch es lo primero que se mira cuando no aparece.
                 d.pitches ? t("dicts.pitches", { count: d.pitches.toLocaleString(locale) }) : null,
                 d.metas > 0 && t("dicts.metas", { count: d.metas.toLocaleString(locale) }),
+                d.kanji ? t("dicts.kanji", { count: d.kanji.toLocaleString(locale) }) : null,
               ].filter(Boolean).join(" · ")}
             </div>
             <div className="dict-controls">

@@ -8,6 +8,8 @@ import { checkNotes, type WordCheck } from "../server";
 import type { Settings } from "../settings";
 import type { Idioma, T } from "../i18n";
 import { EntryCard } from "./EntryCard";
+import { KanjiSheet } from "./KanjiSheet";
+import { hayDiccionarioKanji } from "../kanji";
 
 /** Diccionarios que han aportado definiciones, en el orden en que salen (o sea, por prioridad). */
 function diccionariosDe(entradas: Entry[]): string[] {
@@ -56,6 +58,9 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
   );
   const dictCount = dictHuella === undefined ? undefined : (dictHuella ? dictHuella.split("|").length : 0);
   const requestId = useRef(0);
+  // Kanji cuya ficha está abierta. Solo se ofrece si hay algún diccionario de kanji activo.
+  const [kanji, setKanji] = useState<string | null>(null);
+  const conKanji = useLiveQuery(() => hayDiccionarioKanji(), [dictHuella]);
 
   // Qué fichas ya se añadieron, en UNA consulta para todas. Antes cada ficha tenía la suya, y eran
   // veinte consultas en vivo a IndexedDB cada vez que llegaban resultados nuevos.
@@ -182,10 +187,18 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
           setSettings={setSettings}
           inCollection={dupes.get(entryKey(e.expression, e.reading))}
           added={anadidas?.get(entryKey(e.expression, e.reading))}
+          onKanji={conKanji ? setKanji : undefined}
           t={t}
           idioma={idioma}
         />
       ))}
+
+      <KanjiSheet
+        kanji={kanji}
+        onClose={() => setKanji(null)}
+        onBuscar={palabra => { setKanji(null); setQuery(palabra); }}
+        t={t}
+      />
     </div>
   );
 }
