@@ -114,7 +114,8 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
 - `src/kanji.ts` + `components/KanjiSheet.tsx` — ficha de kanji desde diccionarios `kanji_bank` (KANJIDIC de
   yomidevs/jmdict-yomitan; rol «kanji», tabla `kanji` de Dexie v5). Los kanji del término se tocan si hay algún
   diccionario de kanji activo. «Palabras» son las que EMPIEZAN por el kanji (rango del índice); «contiene» exigiría
-  recorrer la tabla o indexar los kanji al importar. El JLPT de KANJIDIC es el antiguo (1–4): se rotula así.
+  recorrer la tabla o indexar los kanji al importar. El JLPT de KANJIDIC es el antiguo (1–4); el actual (N5–N1) sale de `src/jlpt.ts`,
+  las listas de Waller (no hay oficiales desde 2010), y el antiguo solo se enseña si el kanji no está en ellas.
 - `src/history.ts` + `components/HistoryView.tsx` — historial indexado por la palabra a la que se llega, no por
   lo tecleado: buscar 食べた y 食べる deja una entrada. Si la consulta nueva empieza por la anterior y han pasado
   menos de 2 min, sustituye a la anterior (escribir 食べる no deja 食, 食べ y 食べる).

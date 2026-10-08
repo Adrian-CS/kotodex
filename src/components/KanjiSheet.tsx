@@ -44,7 +44,9 @@ export function KanjiSheet({ kanji, onClose, onBuscar, t }: Props) {
   const datos = ficha ? [
     ficha.strokes !== undefined && t("kanji.strokes", { count: ficha.strokes }),
     ficha.grade !== undefined && textoGrado(ficha.grade, t),
-    ficha.jlpt !== undefined && t("kanji.jlpt", { level: ficha.jlpt }),
+    ficha.jlptN !== undefined
+      ? t("kanji.jlptN", { level: ficha.jlptN })
+      : ficha.jlpt !== undefined && t("kanji.jlpt", { level: ficha.jlpt }),
     ficha.freq !== undefined && t("kanji.freq", { rank: ficha.freq }),
   ].filter(Boolean) : [];
 

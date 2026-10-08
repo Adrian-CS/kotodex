@@ -17,7 +17,9 @@ export interface FichaKanji {
   significados: Significados[];
   strokes?: number;
   grade?: number;
-  /** Nivel del JLPT ANTIGUO (1–4) que trae KANJIDIC; no hay equivalencia exacta con N1–N5. */
+  /** Nivel del JLPT actual, N5 = 5 … N1 = 1, según las listas de Waller (ver jlpt.ts). */
+  jlptN?: number;
+  /** Nivel del JLPT ANTIGUO (1–4) que trae KANJIDIC; solo se enseña si el actual no se conoce. */
   jlpt?: number;
   /** Puesto entre los 2.500 kanji más frecuentes en prensa. */
   freq?: number;
@@ -57,6 +59,7 @@ export async function fichaKanji(character: string): Promise<FichaKanji | null> 
     [...new Set(filas.flatMap(k => k[campo].split(/\s+/).filter(Boolean)))];
   const dato = (clave: string) => numero(filas.find(k => k.stats?.[clave])?.stats[clave]);
   const titulo = new Map(dicts.map(d => [d.id!, d.title]));
+  const { nivelJlpt } = await import("./jlpt");
 
   return {
     character,
@@ -67,6 +70,7 @@ export async function fichaKanji(character: string): Promise<FichaKanji | null> 
       .map(k => ({ dictTitle: titulo.get(k.dict) ?? "", meanings: k.meanings })),
     strokes: dato("strokes"),
     grade: dato("grade"),
+    jlptN: nivelJlpt(character),
     jlpt: dato("jlpt"),
     freq: dato("freq"),
   };
