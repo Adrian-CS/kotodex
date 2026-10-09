@@ -228,7 +228,7 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
       {esFrase(query) && (
         <div className="frase-bloque">
           {/* Un span por carácter: tocar uno busca la palabra que EMPIEZA ahí, como en Yomitan. */}
-          <p className="frase" lang="ja" onClick={tocarFrase} aria-label={t("phrase.aria")}>
+          <p className="frase" lang={/[가-힣]/.test(query) ? "ko" : "ja"} onClick={tocarFrase} aria-label={t("phrase.aria")}>
             {[...query].map((c, i) => (
               <span
                 key={i}

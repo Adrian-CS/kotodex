@@ -86,6 +86,9 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   kana por `reading`, lo demás por `expression`) y gana el corte más largo. Luego search() arma la ficha con ese trozo.
   NO se segmenta la frase al pegarla (en el iPhone serían segundos): solo se trabaja al tocar (1–9 ms en Chromium con
   JMdict real, ≤50 ms con la CPU ×6). Frase larga o con puntuación (`soloFrase`): no se busca entera hasta tocar.
+  Coreano también: el trozo no pasa del espacio, y gana el corte más largo que exista tal cual (학교에 → 학교, las
+  partículas caen solas) o con el deinflector coreano (갔어요 → 가다), que se carga al primer toque en hangul. La frase
+  coreana corta solo en espacios (`word-break: keep-all` con `:lang(ko)`).
 - Búsqueda por definición, tres cosas que costó afinar y conviene no deshacer:
   relevancia **por palabras** con el mismo tokenizador del índice (así «to eat» encuentra los
   sentidos escritos «eat», y los diccionarios que pegan la cabecera al sentido —«먹다 eat» en
