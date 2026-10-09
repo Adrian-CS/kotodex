@@ -156,18 +156,31 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
   return (
     <div className={`search${buscando ? " buscando" : ""}`}>
       <div className="search-bar">
-        <input
-          type="search"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder={t("search.placeholder")}
-          aria-label={t("search.aria")}
-          lang="ja"
-          enterKeyHint="search"
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-        />
+        <div className="campo">
+          <input
+            type="search"
+            value={query}
+            onChange={e => { setQuery(e.target.value); setErrorPegar(false); }}
+            placeholder={t("search.placeholder")}
+            aria-label={t("search.aria")}
+            lang="ja"
+            enterKeyHint="search"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+          {/* Pegar y buscar: dentro de la barra y solo con ella vacía. Con texto, ese hueco es de la ✕
+              del sistema, así que nunca coinciden. */}
+          {!query && (
+            <button className="boton-pegar" onClick={pegarYBuscar} aria-label={t("search.paste")} title={t("search.paste")}>
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <rect x="6" y="4" width="12" height="17" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                <rect x="9" y="2.5" width="6" height="3.5" rx="1" fill="var(--sheet)" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M9 11h6M9 15h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
+        </div>
         <button className="boton-radicales" lang="ja" onClick={() => setRadicalesAbierto(true)}
           aria-label={t("radicals.open")} title={t("radicals.open")}>部</button>
         <button className="boton-radicales" onClick={() => setDibujoAbierto(true)}
@@ -189,12 +202,7 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
         </div>
       )}
 
-      {!query.trim() && dictCount !== 0 && (
-        <div className="pegar">
-          <button onClick={pegarYBuscar}>{t("search.paste")}</button>
-          {errorPegar && <p className="hint">{t("search.pasteFailed")}</p>}
-        </div>
-      )}
+      {errorPegar && !query && <p className="hint aviso-pegar" role="status">{t("search.pasteFailed")}</p>}
 
       {error && <p className="error">{t("search.failed", { error })}</p>}
 

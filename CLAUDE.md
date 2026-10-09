@@ -76,7 +76,8 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   es una consulta por expresión. También decide qué lista va primero en las búsquedas latinas (sake → 酒, no 辛口).
 - `?q=` en la URL abre la app con esa búsqueda. En iOS no sirve para la app de la pantalla de inicio: los enlaces
   y Atajos abren Safari, que tiene su propio almacenamiento (sin los diccionarios importados).
-- «Pegar y buscar» (SearchView, solo con la barra vacía): `navigator.clipboard.readText()` tras el toque; en iOS sale
+- «Pegar y buscar» (icono de portapapeles DENTRO de la barra, a la derecha, solo con ella vacía; con texto ese hueco
+  es de la ✕ del sistema): `navigator.clipboard.readText()` tras el toque; en iOS sale
   la burbuja «Pegar» del sistema y hay que tocarla (ninguna web lee el portapapeles sin confirmación). Se busca la
   primera línea con texto, hasta 40 caracteres. Sin permiso, aviso con la alternativa de pegar a mano.
 - Búsqueda por definición, tres cosas que costó afinar y conviene no deshacer:

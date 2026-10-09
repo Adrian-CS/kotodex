@@ -72,9 +72,16 @@ button, input, select { font: inherit; color: inherit; }
   .cargando::after { animation: none; left: 0; width: 100%; opacity: .5; }
 }
 .tiempos { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
-/* «Pegar y buscar»: solo con la barra vacía, que es cuando se viene de copiar algo en otra app. */
-.pegar { text-align: center; padding: 24px 0 8px; }
-.pegar .hint { margin-top: 8px; }
+/* «Pegar y buscar»: icono dentro de la barra, a la derecha, solo con la barra vacía (después ahí va la ✕). */
+.campo { position: relative; flex: 1; min-width: 0; display: flex; }
+.campo input:placeholder-shown { padding-right: 48px; }
+.boton-pegar {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  width: 40px; height: 40px; padding: 0; border: 0; border-radius: 10px; background: none;
+  color: var(--muted); display: flex; align-items: center; justify-content: center;
+}
+.boton-pegar:active { background: var(--rule); }
+.aviso-pegar { margin: -4px 0 8px; font-size: 13px; }
 .empty { color: var(--muted); text-align: center; padding: 48px 8px; }
 .empty .primary { margin-top: 8px; }
 .error { color: var(--danger); }
