@@ -57,3 +57,22 @@ La búsqueda deshace la conjugación cuando no hay coincidencia exacta: 食べ�
 - Desplegar el servidor y conseguir un pack de audio
 - Imágenes de structured-content
 - Búsqueda por prefijo sobre la lectura
+
+## Licencia
+
+El código de kotodex se distribuye bajo la **GNU General Public License v3 o posterior** ([LICENSE](LICENSE)):
+los desconjugadores japonés y coreano derivan de [Yomitan](https://github.com/yomidevs/yomitan), que es GPL-3.0.
+
+Los datos que la app usa tienen sus propias licencias y no cambian con la del código:
+
+| Datos | Origen | Licencia |
+| --- | --- | --- |
+| JMdict, KANJIDIC, RADKFILE/KRADFILE, KANJIDIC2 | [EDRDG](https://www.edrdg.org/edrdg/licence.html) | CC BY-SA 4.0 |
+| Orden de trazos, radical y partes | [KanjiVG](https://kanjivg.tagaini.net/) | CC BY-SA 3.0 |
+| Niveles JLPT actuales | Listas de Jonathan Waller, vía [kanji-data](https://github.com/davidluzgouveia/kanji-data) | CC BY / MIT |
+| Nombres de los radicales | [Kanji alive](https://github.com/kanjialive/kanji-data-media) | CC BY 4.0 |
+| Búsqueda por radicales | [@johnmorrisdotca/bushu](https://www.npmjs.com/package/@johnmorrisdotca/bushu) | MIT (código) |
+
+Los diccionarios, el pitch y el audio los importa cada usuario y **no** forman parte del repositorio: cada uno
+sigue la licencia de quien lo publica, y los que tienen copyright son solo para uso personal.
+

@@ -1,3 +1,7 @@
+// Copyright (C) Yomitan Authors (deinflector original); adaptación (C) 2026 Adrian.
+// Este archivo deriva de Yomitan y se distribuye bajo la GNU General Public License v3 o posterior
+// (ver LICENSE). Se ofrece SIN GARANTÍA. https://github.com/yomidevs/yomitan
+//
 // Deshace conjugaciones para poder buscar 食べた, 読まなかった o 高くない.
 // La tabla está portada del deinflector de Yomitan (ext/data/deinflect.json), con los nombres
 // de las razones en español; el algoritmo es el mismo: quitar sufijos hacia atrás hasta llegar

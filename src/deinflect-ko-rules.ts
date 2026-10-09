@@ -1,3 +1,7 @@
+// Copyright (C) Yomitan Authors (deinflector original); adaptación (C) 2026 Adrian.
+// Este archivo deriva de Yomitan y se distribuye bajo la GNU General Public License v3 o posterior
+// (ver LICENSE). Se ofrece SIN GARANTÍA. https://github.com/yomidevs/yomitan
+//
 // Reglas de conjugación coreana, portadas de Yomitan (ext/js/language/ko/korean-transforms.js).
 // 450 transformaciones, 2682 reglas. Generado, no editar a mano.
 //

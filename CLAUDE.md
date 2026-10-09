@@ -1,6 +1,8 @@
 # CLAUDE.md — 辞書 → Anki
 
 Proyecto personal de Adrian (full-stack; TS/React/Next.js, Cloudflare). Uso **solo personal**: nunca se publica abierto.
+Licencia del código: **GPL-3.0-or-later** (`LICENSE`), porque los desconjugadores derivan de Yomitan (GPL). Esos
+archivos conservan el aviso de copyright de Yomitan: no quitarlo. Licencias de los datos, en el README.
 
 ## Objetivo
 Diccionario japonés para iPhone (PWA en pantalla de inicio), estilo Yomitan: buscar una palabra → ver definición

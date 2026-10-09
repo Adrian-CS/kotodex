@@ -1,3 +1,7 @@
+// Copyright (C) Yomitan Authors (deinflector original); adaptación (C) 2026 Adrian.
+// Este archivo deriva de Yomitan y se distribuye bajo la GNU General Public License v3 o posterior
+// (ver LICENSE). Se ofrece SIN GARANTÍA. https://github.com/yomidevs/yomitan
+//
 // Deshace conjugaciones coreanas: 먹었어요 → 먹다.
 //
 // Mismo algoritmo que el japonés (deinflect.ts), pero con dos diferencias:
