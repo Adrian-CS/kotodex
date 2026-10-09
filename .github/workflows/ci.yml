@@ -1,0 +1,118 @@
+name: Comprobar y desplegar
+
+# En cada push y PR: tipos, tests unitarios, pruebas de extremo a extremo (Playwright) y los tests
+# del servidor. Si todo pasa en main, se publica la PWA en https://kotodex.pages.dev.
+# El servidor no se despliega desde aquí: corre en el portátil y se reinicia a mano.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pwa:
+    name: PWA
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Tipos
+        run: npx tsc -p .
+
+      - name: Tests
+        run: npm test
+
+      - name: Navegador para las pruebas
+        run: npx playwright install --with-deps chromium
+
+      # Genera test-dicts/ (e2e/preparar.ts) y levanta Vite él solo.
+      - name: Pruebas de extremo a extremo
+        run: npm run e2e
+
+      - name: Trazas de las pruebas que fallen
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright
+          path: test-results/
+          retention-days: 7
+
+      - name: Build
+        run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+  servidor:
+    name: Servidor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: server/requirements.txt
+
+      - run: pip install -r server/requirements.txt pytest httpx
+
+      - name: Tests
+        working-directory: server
+        run: python -m pytest tests -q
+
+  desplegar:
+    name: Publicar
+    needs: pwa
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Un despliegue a la vez; si llegan dos pushes seguidos, el segundo espera al primero.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Si el push solo toca server/ o documentación, la PWA no cambia: no se publica otra vez.
+      - name: ¿Cambia la PWA?
+        id: cambios
+        env:
+          ANTES: ${{ github.event.before }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "push" ] || [ -z "$ANTES" ] || ! git cat-file -e "$ANTES" 2>/dev/null; then
+            echo "publicar=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$ANTES" "$GITHUB_SHA" | grep -qvE '^server/|\.md$'; then
+            echo "publicar=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publicar=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v4
+        if: steps.cambios.outputs.publicar == 'true'
+        with:
+          name: dist
+          path: dist
+
+      # Mismo comando que en COMANDOS.md. --branch main lo marca como producción, así que sale en
+      # la URL fija y no en una de vista previa.
+      - name: Publicar
+        if: steps.cambios.outputs.publicar == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name kotodex --branch main

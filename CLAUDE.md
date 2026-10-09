@@ -232,6 +232,11 @@ Conjugaciones: 食べた, 食べさせられた, たべている, 読まなか�
 diccionario con la razón debajo del término. `npx tsc -p .` y `npm test` deben salir limpios.
 Para verificar UI móvil: Playwright a 390×844.
 
+Lo anterior está automatizado en `e2e/` (`npm run e2e`, Playwright con Chromium a tamaño de iPhone; genera
+test-dicts/ si falta y levanta Vite en el 5199). Sin red: KanjiVG se responde 404 y el servidor de Anki es
+falso (`page.route`), así que se comprueba lo que la PWA MANDA, no Anki. Lo corre el CI (`ci.yml`) en cada push,
+junto con los tests del servidor; en main, si pasa, publica.
+
 Servidor: `cd server && ./venv/bin/python -m pytest tests -q` (59 casos, colección temporal). Para probarlo
 junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173` y poner esa URL en Ajustes.
 
@@ -265,6 +270,6 @@ junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173
 
 ## Pendiente (por prioridad)
 1. **Terminar el despliegue**: `tailscale serve` en el portátil, app de Tailscale en el iPhone, y poner el origen
-   de Pages en `KOTODEX_CORS_ORIGINS` (la PWA ya se despliega sola con cada push a main). Para el audio, decidir fuente: el addon Forvo local
+   de Pages en `KOTODEX_CORS_ORIGINS` (la PWA ya se despliega sola con cada push a main, si pasan los tests). Para el audio, decidir fuente: el addon Forvo local
    (exige Anki de escritorio abierto) o clave de la API de Forvo.
 2. Imágenes de structured-content (guardar blobs).

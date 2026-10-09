@@ -34,10 +34,11 @@ acuérdate de tener la app de Tailscale activa.
 
 **Si el cambio toca `src/`** (buscador, interfaz, historial, diccionarios):
 
-Se despliega solo: cada push a `main` que toque la PWA lanza `.github/workflows/deploy.yml`, que
-comprueba tipos, pasa los tests, construye y publica. Si algo falla, no se publica; míralo en la
-pestaña Actions de GitHub. Para relanzarlo sin push: Actions → «Desplegar en Cloudflare Pages» →
-Run workflow. A mano, por si GitHub falla:
+Se despliega solo: cada push lanza `.github/workflows/ci.yml`, que comprueba tipos, pasa los tests
+unitarios, las pruebas de extremo a extremo (Playwright) y los tests del servidor, y construye. En
+`main`, si la PWA cambió, además publica. Si algo falla, no se publica; míralo en la pestaña Actions
+de GitHub (las trazas de Playwright quedan como artefacto «playwright»). Para relanzarlo sin push:
+Actions → «Comprobar y desplegar» → Run workflow. A mano, por si GitHub falla:
 
 ```powershell
 cd C:\dev\kotodex
