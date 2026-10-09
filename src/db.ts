@@ -3,8 +3,9 @@ import Dexie, { type Table } from "dexie";
 /**
  * Qué papel tiene cada diccionario en la tarjeta. "other" = importado pero ignorado.
  * "kanji" = diccionario de kanji (KANJIDIC): no aporta definiciones, solo la ficha de cada kanji.
+ * "freq" = diccionario de frecuencias (JPDB, BCCWJ…): ordena los resultados, las palabras comunes primero.
  */
-export type Role = "ja" | "es" | "en" | "pitch" | "kanji" | "other";
+export type Role = "ja" | "es" | "en" | "pitch" | "kanji" | "freq" | "other";
 
 export interface Dictionary {
   id?: number;
@@ -17,6 +18,13 @@ export interface Dictionary {
   pitches?: number;
   /** Cuántos kanji trae (kanji_bank). Falta en lo importado antes de leerlos. */
   kanji?: number;
+  /** Cuántas entradas de frecuencia trae. Falta en lo importado antes de contarlas. */
+  frecuencias?: number;
+  /**
+   * Cómo leer sus frecuencias (index.json de Yomitan): "rank-based" = puesto, menos es más común;
+   * "occurrence-based" = apariciones, más es más común. Sin dato se asume puesto, que es lo habitual.
+   */
+  frequencyMode?: "rank-based" | "occurrence-based";
   /** Prioridad elegida por el usuario: decide qué definición sale antes. Menor = primero. */
   order?: number;
   importedAt: number;

@@ -10,8 +10,8 @@ const unzipJson = (buf: Uint8Array) =>
 
 const bankNumber = (name: string) => Number(name.match(/(\d+)\.json$/)?.[1] ?? 0);
 
-function guessRole(title: string, hasTerms: boolean, pitchRows: number, kanjiRows: number): Role {
-  if (!hasTerms) return pitchRows > 0 ? "pitch" : kanjiRows > 0 ? "kanji" : "other";
+function guessRole(title: string, hasTerms: boolean, pitchRows: number, kanjiRows: number, freqRows: number): Role {
+  if (!hasTerms) return pitchRows > 0 ? "pitch" : kanjiRows > 0 ? "kanji" : freqRows > 0 ? "freq" : "other";
   if (/jmdict|jitendex/i.test(title)) {
     return /(spa|español|espanol|spanish)/i.test(title) ? "es" : "en";
   }
@@ -49,7 +49,7 @@ export async function importDictionary(file: File, onProgress: (p: ImportProgres
   });
 
   const total = termBanks.length + metaBanks.length + kanjiBanks.length;
-  let done = 0, termCount = 0, metaCount = 0, pitchRows = 0, kanjiCount = 0;
+  let done = 0, termCount = 0, metaCount = 0, pitchRows = 0, kanjiCount = 0, freqRows = 0;
 
   try {
     for (const name of termBanks) {
@@ -81,6 +81,7 @@ export async function importDictionary(file: File, onProgress: (p: ImportProgres
       delete files[name];
       const metas: TermMeta[] = rows.map(r => ({ dict: dictId, expression: r[0], mode: r[1], data: r[2] }));
       pitchRows += metas.filter(m => m.mode === "pitch").length;
+      freqRows += metas.filter(m => m.mode === "freq").length;
       await db.metas.bulkAdd(metas);
       metaCount += metas.length;
       done++;
@@ -107,8 +108,11 @@ export async function importDictionary(file: File, onProgress: (p: ImportProgres
     throw e;
   }
 
-  const role = guessRole(title, termCount > 0, pitchRows, kanjiCount);
-  await db.dictionaries.update(dictId, { terms: termCount, metas: metaCount, pitches: pitchRows, kanji: kanjiCount, role });
+  const role = guessRole(title, termCount > 0, pitchRows, kanjiCount, freqRows);
+  const frequencyMode = index.frequencyMode === "occurrence-based" ? "occurrence-based" : "rank-based";
+  await db.dictionaries.update(dictId, {
+    terms: termCount, metas: metaCount, pitches: pitchRows, kanji: kanjiCount, frecuencias: freqRows, frequencyMode, role,
+  });
   navigator.storage?.persist?.().catch(() => {});
   onProgress({ stage: "Listo", done: total, total });
   return (await db.dictionaries.get(dictId))!;

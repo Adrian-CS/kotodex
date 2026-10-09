@@ -20,7 +20,17 @@ export interface Entry {
   /** Qué secciones enseñar y en qué orden, según la prioridad de los diccionarios. */
   sections: DefRole[];
   inflected?: Inflected;        // solo si hizo falta deshacer una conjugación
+  /** Frecuencia según el diccionario de frecuencias de más prioridad, tal como la escribe él. */
+  frecuencia?: { texto: string; dictTitle: string };
+  /** La misma, como número comparable: menor = más común. Solo para ordenar. */
+  rangoFrecuencia?: number;
 }
+
+/** Solo kana (y ー): lo que se puede buscar por prefijo de lectura. */
+const esKana = (s: string) => /^[ぁ-ゖァ-ヺー]+$/.test(s);
+
+/** Filas por prefijo de lectura. Menos que por expresión: las de JMdict pesan, y en Safari se nota. */
+const MAX_PREFIJO_LECTURA = 100;
 
 const toHiragana = (s: string) => s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
 const toKatakana = (s: string) => s.replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
@@ -115,6 +125,14 @@ export async function search(raw: string, soloDiccionario?: string | null, opcio
   const lookupLectura = async (words: string[]): Promise<Term[]> => words.length
     ? (await porClaves(db.terms, "reading", words)).filter(defDict)
     : [];
+  /** Términos cuya lectura EMPIEZA por el kana dado, en hiragana y en katakana (rangos del índice). */
+  const prefijoLectura = async (kana: string): Promise<Term[]> => {
+    const [hira, kata] = await Promise.all([
+      db.terms.where("reading").startsWith(toHiragana(kana)).limit(MAX_PREFIJO_LECTURA).toArray(),
+      db.terms.where("reading").startsWith(toKatakana(kana)).limit(MAX_PREFIJO_LECTURA).toArray(),
+    ]);
+    return hira.concat(kata).filter(defDict);
+  };
 
   /**
    * Formas de diccionario coreanas a las que se llega deshaciendo la conjugación de `formas`.
@@ -187,7 +205,7 @@ export async function search(raw: string, soloDiccionario?: string | null, opcio
     // Las dos búsquedas a la vez: en serie, kaiseki tardaba el triple que una búsqueda en kanji.
     const [encontrados, porLectura] = await Promise.all([
       fase("definiciones", porDefinicion(q)).then(ts => ts.filter(defDict)),
-      fase("lectura", porRomanizacion(q, lookupLectura, deshacerJapones, deshacerCoreano, dicts, fase)),
+      fase("lectura", porRomanizacion(q, lookupLectura, deshacerJapones, deshacerCoreano, dicts, fase, prefijoLectura)),
     ]);
     const porDef = encontrados.length
       ? await fase("armar", armar(encontrados, dicts, new Set<string>(), new Map(), relevancia(q), undefined, undefined, true))
@@ -198,7 +216,12 @@ export async function search(raw: string, soloDiccionario?: string | null, opcio
     // definiciones solo si alguna la tiene como equivalente exacto («bridge» → 橋); si no, la
     // consulta casi seguro era una lectura.
     const rel = relevancia(q);
-    const definicionPrimero = encontrados.some(t => rel(t) === 0);
+    let definicionPrimero = encontrados.some(t => rel(t) === 0);
+    // Con un diccionario de frecuencias se afina: si lo mejor por lectura es más común que lo mejor
+    // por definición, la consulta era una lectura. «sake» tiene sentidos que son «sake» (辛口, puesto
+    // 30.000), pero 酒 (puesto 1.500) es lo que se buscaba. «same» sigue dando 同じ antes que 鮫.
+    const mejorFrecuencia = (lista: Entry[]) => Math.min(...lista.slice(0, 5).map(e => e.rangoFrecuencia ?? Infinity));
+    if (definicionPrimero && mejorFrecuencia(porLectura) < mejorFrecuencia(porDef)) definicionPrimero = false;
     return terminar(juntar(definicionPrimero ? porDef : porLectura, definicionPrimero ? porLectura : porDef));
   }
 
@@ -211,11 +234,24 @@ export async function search(raw: string, soloDiccionario?: string | null, opcio
 
   if (!terms.length && esCoreano(q)) await deshacerCoreano([q], terms, matched, inflectedByTerm);
 
+  const exacta = terms.length > 0;
+
   // Sin coincidencia exacta: deshacer conjugaciones (食べた → 食べる) antes de probar por prefijo.
   if (!terms.length && !esCoreano(q)) await deshacerJapones(variants, terms, matched, inflectedByTerm);
 
   if (!terms.length) {
-    terms = (await fase("prefijo", db.terms.where("expression").startsWith(q).limit(200).toArray())).filter(defDict);
+    // Por expresión y, si es kana, también por lectura: escribir かいせ encuentra 解析 y 会席, cuya
+    // expresión no empieza por かいせ. Solo llega aquí si no hubo coincidencia exacta ni conjugación,
+    // así que no ralentiza las búsquedas normales.
+    const [porExpresion, porLectura] = await fase("prefijo", Promise.all([
+      db.terms.where("expression").startsWith(q).limit(200).toArray(),
+      esKana(q) ? prefijoLectura(q) : [],
+    ]));
+    terms = porExpresion.filter(defDict).concat(porLectura);
+  } else if (!exacta && esKana(q)) {
+    // Kana que solo encajó como conjugación: かいせ es el imperativo de 介す, pero casi siempre es
+    // 解析 a medio escribir. Se suman las que empiezan así; las conjugadas siguen primero (rango 0).
+    terms = terms.concat(await fase("prefijo", prefijoLectura(q)));
   }
 
   // Japonés → otros idiomas. Va SUMADO, no como respaldo: buscar 人 tiene coincidencia exacta en
@@ -254,6 +290,7 @@ async function porRomanizacion(
   deshacerCoreano: Deshacer,
   dicts: Map<number, Dictionary>,
   fase: Fase,
+  prefijoLectura: (kana: string) => Promise<Term[]>,
 ): Promise<Entry[]> {
   if (q.replace(/[^a-zA-Z]/g, "").length < 2) return [];
   const ja = candidatosJaponeses(q);
@@ -282,6 +319,9 @@ async function porRomanizacion(
       fieles.length ? deshacerCoreano(fieles, terms, matched, inflectedByTerm, q, true) : undefined,
     ]);
   }
+  // Rōmaji a medio escribir (kaise → かいせ…): prefijo de lectura si nada encajó entero. Se suma a
+  // lo que dé el deinflector, que va primero: tabeta tiene que dar 食べる antes que nada.
+  if (ja && !hayJa && !hayKo) terms.push(...await fase("lectura: prefijo", prefijoLectura(ja.literal)));
   return terms.length ? fase("lectura: armar", armar(terms, dicts, matched, inflectedByTerm)) : [];
 }
 
@@ -408,6 +448,57 @@ function relevancia(q: string): (t: Term) => number {
   };
 }
 
+/**
+ * Cuántos candidatos reciben su frecuencia antes de ordenar. Es una consulta por expresión, así que
+ * no se piden para todos: con 200 resultados por prefijo serían 200 consultas. Los que quedan fuera
+ * ya iban detrás por coincidencia o relevancia, que pesan más que la frecuencia.
+ */
+const MAX_CON_FRECUENCIA = 40;
+
+/** Una frecuencia de Yomitan en sus distintas formas: 245, "245", {value, displayValue} o {reading, frequency}. */
+function leerFrecuencia(data: unknown): { valor: number; texto: string; lectura?: string } | null {
+  if (typeof data === "number") return { valor: data, texto: String(data) };
+  if (typeof data === "string") {
+    const n = parseFloat(data);
+    return Number.isFinite(n) ? { valor: n, texto: data } : null;
+  }
+  if (!data || typeof data !== "object") return null;
+  const d = data as Record<string, unknown>;
+  if ("frequency" in d) {
+    const dentro = leerFrecuencia(d.frequency);
+    return dentro && { ...dentro, lectura: typeof d.reading === "string" ? d.reading : undefined };
+  }
+  if (typeof d.value === "number") {
+    return { valor: d.value, texto: typeof d.displayValue === "string" ? d.displayValue : String(d.value) };
+  }
+  return null;
+}
+
+/**
+ * Pone a cada grupo su frecuencia (menor = más común) según UN diccionario de frecuencias, el de más
+ * prioridad. Mezclar varios no tiene sentido: cada uno mide sobre un corpus y una escala distintos.
+ */
+async function anotarFrecuencias<G extends { expression: string; reading: string; frec: number; frecTexto?: string }>(
+  grupos: G[], comparar: (a: G, b: G) => number, dict: Dictionary,
+): Promise<void> {
+  const candidatos = grupos.length <= MAX_CON_FRECUENCIA ? grupos : [...grupos].sort(comparar).slice(0, MAX_CON_FRECUENCIA);
+  const metas = (await porClaves(db.metas, "expression", [...new Set(candidatos.map(g => g.expression))]))
+    .filter(m => m.dict === dict.id && m.mode === "freq");
+  const signo = dict.frequencyMode === "occurrence-based" ? -1 : 1;
+  for (const g of candidatos) {
+    const lectura = toHiragana(g.reading);
+    for (const m of metas) {
+      if (m.expression !== g.expression) continue;
+      const f = leerFrecuencia(m.data);
+      if (!f) continue;
+      // Una entrada con lectura solo vale para esa lectura: 生 tiene una frecuencia por cada una.
+      if (f.lectura && toHiragana(f.lectura) !== lectura) continue;
+      const valor = signo * f.valor;
+      if (valor < g.frec) { g.frec = valor; g.frecTexto = f.texto; }
+    }
+  }
+}
+
 /** Agrupa por (expresión, lectura), ordena, añade el pitch y arma las entradas finales. */
 async function armar(
   terms: Term[],
@@ -419,13 +510,13 @@ async function armar(
   relevanciaCruzada?: (t: Term) => number,
   repartir = false,
 ): Promise<Entry[]> {
-  const groups = new Map<string, { expression: string; reading: string; score: number; rel: number; cruzado: boolean; prioridad: number; terms: Term[]; inflected?: Inflected }>();
+  const groups = new Map<string, { expression: string; reading: string; score: number; rel: number; cruzado: boolean; prioridad: number; terms: Term[]; inflected?: Inflected; frec: number; frecTexto?: string }>();
   const seen = new Set<number>();
   for (const t of terms) {
     if (seen.has(t.id!)) continue;
     seen.add(t.id!);
     const key = `${t.expression}\u0000${t.reading}`;
-    const g = groups.get(key) ?? { expression: t.expression, reading: t.reading, score: -Infinity, rel: Number.MAX_SAFE_INTEGER, cruzado: false, prioridad: Number.MAX_SAFE_INTEGER, terms: [] };
+    const g = groups.get(key) ?? { expression: t.expression, reading: t.reading, score: -Infinity, rel: Number.MAX_SAFE_INTEGER, cruzado: false, prioridad: Number.MAX_SAFE_INTEGER, terms: [], frec: Infinity };
     g.score = Math.max(g.score, t.score);
     // Una entrada puede venir de varios diccionarios; manda el de más prioridad.
     g.prioridad = Math.min(g.prioridad, dicts.get(t.dict)?.order ?? t.dict);
@@ -443,8 +534,15 @@ async function armar(
   const rank = (e: { expression: string; reading: string }) =>
     matched.has(e.expression) ? 0 : matched.has(e.reading) ? 1 : 2;
   type Grupo = ReturnType<typeof groups.get> & object;
+  // La frecuencia va después de «exacta» y de la relevancia, y antes del score del diccionario: el de
+  // JMdict apenas distingue, y con él «sake» daba 辛口 antes que 酒.
   const comparar = (a: Grupo, b: Grupo) =>
-    rank(a) - rank(b) || a.rel - b.rel || b.score - a.score || a.expression.length - b.expression.length;
+    rank(a) - rank(b) || a.rel - b.rel || a.frec - b.frec || b.score - a.score || a.expression.length - b.expression.length;
+
+  const frecDict = [...dicts.values()]
+    .filter(d => d.role === "freq")
+    .sort((a, b) => (a.order ?? a.id!) - (b.order ?? b.id!))[0];
+  if (frecDict) await anotarFrecuencias([...groups.values()], comparar, frecDict);
 
   /**
    * Reparte los huecos entre diccionarios en vez de dárselos todos al que más coincidencias tenga.
@@ -514,7 +612,7 @@ async function armar(
     // así que se manda al final en vez de premiarla por corta.
     const fragmento = (g: Grupo) => (g.expression.length <= 1 ? 1 : 0);
     const cruce = todos.filter(g => g.cruzado)
-      .sort((a, b) => a.rel - b.rel || fragmento(a) - fragmento(b) || b.score - a.score);
+      .sort((a, b) => a.rel - b.rel || fragmento(a) - fragmento(b) || a.frec - b.frec || b.score - a.score);
     const normales = todos.filter(g => !g.cruzado).sort(comparar);
     sorted = [
       ...normales.slice(0, MAX_ENTRIES - Math.min(CUOTA_CRUZADA, cruce.length)),
@@ -562,6 +660,8 @@ async function armar(
       if (suya && suya !== lectura) continue;
       for (const p of m.data?.pitches ?? []) if (typeof p.position === "number") pitches.add(p.position);
     }
-    return { expression: g.expression, reading: g.reading, pitches: [...pitches], defs, sections, inflected: g.inflected };
+    const frecuencia = g.frecTexto && frecDict ? { texto: g.frecTexto, dictTitle: frecDict.title } : undefined;
+    const rangoFrecuencia = Number.isFinite(g.frec) ? g.frec : undefined;
+    return { expression: g.expression, reading: g.reading, pitches: [...pitches], defs, sections, inflected: g.inflected, frecuencia, rangoFrecuencia };
   });
 }

@@ -18,7 +18,8 @@ const TABS: { id: Tab; clave: "tab.search" | "tab.history" | "tab.dicts" | "tab.
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("search");
-  const [query, setQuery] = useState("");
+  // ?q=食べる abre la app con esa búsqueda (enlaces, marcadores, atajos desde el navegador).
+  const [query, setQuery] = useState(() => new URLSearchParams(window.location.search).get("q") ?? "");
   const [settings, setSettingsState] = useState<Settings>(loadSettings);
   // Estables entre renders: las fichas de resultados van memorizadas y dependen de ellas.
   const setSettings = useCallback((s: Settings) => { setSettingsState(s); saveSettings(s); }, []);

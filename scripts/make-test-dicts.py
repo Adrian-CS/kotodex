@@ -4,7 +4,9 @@ out = pathlib.Path("test-dicts"); out.mkdir(exist_ok=True)
 
 def mk(name, title, terms=None, metas=None, kanji=None):
     with zipfile.ZipFile(out / name, "w") as z:
-        z.writestr("index.json", json.dumps({"title": title, "revision": "test", "format": 3}, ensure_ascii=False))
+        indice = {"title": title, "revision": "test", "format": 3}
+        if title.startswith("Frecuencias"): indice["frequencyMode"] = "rank-based"
+        z.writestr("index.json", json.dumps(indice, ensure_ascii=False))
         if terms: z.writestr("term_bank_1.json", json.dumps(terms, ensure_ascii=False))
         if metas: z.writestr("term_meta_bank_1.json", json.dumps(metas, ensure_ascii=False))
         if kanji: z.writestr("kanji_bank_1.json", json.dumps(kanji, ensure_ascii=False))
@@ -49,6 +51,14 @@ mk("pitch.zip", "Kanjium pitch", None, [
     ["食べる", "pitch", {"reading": "たべる", "pitches": [{"position": 2}]}],
     ["読む", "pitch", {"reading": "よむ", "pitches": [{"position": 1}]}],
     ["高い", "pitch", {"reading": "たかい", "pitches": [{"position": 2}]}],
+])
+# Frecuencias por puesto (menos = más común), en las dos formas de Yomitan: número suelto y
+# {reading, frequency:{value, displayValue}}. Reordenan はし: 橋, 端, 箸.
+mk("freq.zip", "Frecuencias (test)", metas=[
+    ["橋", "freq", {"reading": "はし", "frequency": {"value": 1200, "displayValue": "1200"}}],
+    ["端", "freq", {"reading": "はし", "frequency": {"value": 2500, "displayValue": "2500"}}],
+    ["箸", "freq", 3000],
+    ["今日", "freq", {"reading": "きょう", "frequency": 90}],
 ])
 # Formato de KANJIDIC: [kanji, onyomi, kunyomi, tags, significados, estadísticas].
 mk("kanji.zip", "KANJIDIC (test)", kanji=[

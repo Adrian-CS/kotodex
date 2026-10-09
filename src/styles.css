@@ -101,6 +101,7 @@ button, input, select { font: inherit; color: inherit; }
 .entry { content-visibility: auto; contain-intrinsic-size: auto 360px; }
 .entry-head { text-align: center; }
 .entry-inflected { margin: 0 0 2px; font-size: 13px; color: var(--muted); }
+.entry-freq { margin: 4px 0 0; text-align: center; color: var(--muted); font-size: 12px; }
 .entry-reading { color: var(--muted); font-size: 16px; letter-spacing: 0.08em; }
 .entry-word { font-family: var(--mincho); font-weight: 400; font-size: 40px; line-height: 1.25; letter-spacing: 0.04em; margin: 0; }
 

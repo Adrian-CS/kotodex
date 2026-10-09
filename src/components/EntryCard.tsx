@@ -88,6 +88,10 @@ export const EntryCard = memo(function EntryCard({ entry, settings, setSettings,
         </h2>
       </header>
 
+      {entry.frecuencia && (
+        <p className="entry-freq">{t("entry.freq", { value: entry.frecuencia.texto, dict: entry.frecuencia.dictTitle })}</p>
+      )}
+
       {entry.pitches.length > 0 && (
         <div className="pitch-block" dangerouslySetInnerHTML={{ __html: pitchField(entry.reading, entry.pitches) }} />
       )}

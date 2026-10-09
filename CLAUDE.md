@@ -63,7 +63,14 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   Escapar SIEMPRE: este HTML acaba en la tarjeta y en `dangerouslySetInnerHTML`.
 - `src/search.ts` — exacta por expresión/lectura (variantes hira/kata) → si no hay, **deinflexión** → si no, prefijo
   por expresión (limit 200). Agrupa por (expresión, lectura), ordena exacta-expr > exacta-lectura > prefijo, luego
-  score. Máx 20. Pitch desde metas. La búsqueda por prefijo aún no mira `reading`.
+  score. Máx 20. Pitch desde metas. Sin coincidencia exacta se busca también por PREFIJO de lectura (かいせ, kaise →
+  解析), detrás de lo que dé el deinflector (かいせ es imperativo de 介す, pero casi siempre es 解析 a medias).
+- Frecuencia: diccionarios con `term_meta_bank` de modo `freq` (JPDB, BCCWJ…), rol «freq». Ordena DESPUÉS de exacta y
+  relevancia y ANTES del score de JMdict; usa solo el de más prioridad (cada uno mide en su escala) y respeta
+  `frequencyMode` de index.json (puesto vs. apariciones). Se consulta para los 40 mejores candidatos, no para todos:
+  es una consulta por expresión. También decide qué lista va primero en las búsquedas latinas (sake → 酒, no 辛口).
+- `?q=` en la URL abre la app con esa búsqueda. En iOS no sirve para la app de la pantalla de inicio: los enlaces
+  y Atajos abren Safari, que tiene su propio almacenamiento (sin los diccionarios importados).
 - Búsqueda por definición, tres cosas que costó afinar y conviene no deshacer:
   relevancia **por palabras** con el mismo tokenizador del índice (así «to eat» encuentra los
   sentidos escritos «eat», y los diccionarios que pegan la cabecera al sentido —«먹다 eat» en
@@ -162,7 +169,8 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
 ## Formatos Yomitan (v3)
 - term_bank: `[expression, reading("" = igual), defTags, rules, score, glossary[], sequence, termTags]`
 - glossary item: string | `{type:"text"}` | `{type:"structured-content", content}` | `{type:"image"}`
-- term_meta_bank: `[expression, "pitch", {reading, pitches:[{position:number, …}]}]` (también `freq`, se ignora)
+- term_meta_bank: `[expression, "pitch", {reading, pitches:[{position:number, …}]}]` y `freq` (número, `{value, displayValue}`
+  o `{reading, frequency}`; ver `leerFrecuencia()` en search.ts)
 
 ## Idiomas de la interfaz
 `src/i18n.ts` — español, inglés y japonés. El ajuste vive en `Settings.idioma` (`"auto"` = el del
@@ -186,7 +194,7 @@ sistema). Tres decisiones:
 ```bash
 npm install && python3 scripts/make-test-dicts.py && npm run dev
 ```
-Importar los 5 zips de `test-dicts/`, buscar はし (3 entradas, pitches [2],[1],[0]) y 今日 (dos pitches [1],[0], con ES).
+Importar los 6 zips de `test-dicts/`, buscar はし (3 entradas ordenadas por frecuencia: 橋, 端, 箸) y 今日 (dos pitches [1],[0], con ES).
 Tocar 食 en 食べる abre su ficha (ショク・ジキ, た.べる, 9 trazos) con 食べる en «Palabras que empiezan por 食».
 Conjugaciones: 食べた, 食べさせられた, たべている, 読まなかった, 高くない, 勉強しました → todas deben caer en su forma de
 diccionario con la razón debajo del término. `npx tsc -p .` y `npm test` deben salir limpios.
@@ -223,10 +231,9 @@ junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173
   en iOS no compensa.
 
 ## Pendiente (por prioridad)
-1. **Terminar el despliegue**: `tailscale serve` en el portátil, app de Tailscale en el iPhone, desplegar la PWA
-   en Pages y poner ese origen en `KOTODEX_CORS_ORIGINS`. Para el audio, decidir fuente: el addon Forvo local
+1. **Terminar el despliegue**: `tailscale serve` en el portátil, app de Tailscale en el iPhone, y poner el origen
+   de Pages en `KOTODEX_CORS_ORIGINS` (la PWA ya se despliega sola con cada push a main). Para el audio, decidir fuente: el addon Forvo local
    (exige Anki de escritorio abierto) o clave de la API de Forvo.
 2. Preview del audio en la PWA (el servidor ya lo resuelve y lo adjunta).
 3. Importación en Web Worker con progreso; imágenes de structured-content (guardar blobs).
 4. Historial / lista de palabras añadidas.
-5. Búsqueda por prefijo también sobre `reading` (escribir kana parcial no encuentra entradas con kanji).
