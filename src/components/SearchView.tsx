@@ -24,6 +24,9 @@ function diccionariosDe(entradas: Entry[]): string[] {
   return salida;
 }
 
+/** Lo que se busca como mucho al pegar: más largo ya es una frase, no una palabra. */
+const MAX_PEGADO = 40;
+
 /** A partir de cuánto se enseña el desglose de tiempos debajo de la barra. */
 const UMBRAL_LENTA_MS = 1500;
 const segundos = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
@@ -67,6 +70,25 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
   const kanji = pilaKanji.at(-1) ?? null;
   const [radicalesAbierto, setRadicalesAbierto] = useState(false);
   const [dibujoAbierto, setDibujoAbierto] = useState(false);
+  const [errorPegar, setErrorPegar] = useState(false);
+
+  /**
+   * Lee el portapapeles y lo busca. En iOS, readText() enseña la burbuja «Pegar» del sistema y
+   * espera a que se toque: ninguna web lee el portapapeles sin que el usuario lo confirme. Si no
+   * hay permiso o API, se dice cómo pegar a mano en vez de fallar en silencio.
+   */
+  const pegarYBuscar = async () => {
+    setErrorPegar(false);
+    try {
+      // Una frase entera no encontraría nada: primera línea, espacios recogidos y un tope.
+      const texto = (await navigator.clipboard.readText()).split(/\r?\n/).find(l => l.trim()) ?? "";
+      const limpio = texto.replace(/\s+/g, " ").trim().slice(0, MAX_PEGADO);
+      if (limpio) setQuery(limpio);
+      else setErrorPegar(true);
+    } catch {
+      setErrorPegar(true);
+    }
+  };
   const conKanji = useLiveQuery(() => hayDiccionarioKanji(), [dictHuella]);
 
   // Qué fichas ya se añadieron, en UNA consulta para todas. Antes cada ficha tenía la suya, y eran
@@ -154,6 +176,13 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
         <div className="empty">
           <p>{t("search.noDicts")}</p>
           <button className="primary" onClick={onOpenDicts}>{t("search.import")}</button>
+        </div>
+      )}
+
+      {!query.trim() && dictCount !== 0 && (
+        <div className="pegar">
+          <button onClick={pegarYBuscar}>{t("search.paste")}</button>
+          {errorPegar && <p className="hint">{t("search.pasteFailed")}</p>}
         </div>
       )}
 
