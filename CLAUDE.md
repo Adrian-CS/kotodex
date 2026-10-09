@@ -54,7 +54,7 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
 ## Mapa del código
 - `src/db.ts` — esquema Dexie v1: `dictionaries(++id,&title)`, `terms(++id,dict,expression,reading)`,
   `metas(++id,dict,expression)`, `added(&key)`; v3: `lookups(&key,at)` (historial).
-  Roles: `ja|es|en|pitch|other` (other = ignorado). El pitch se lee de CUALQUIER diccionario activo que lo
+  Roles: `ja|es|en|pitch|kanji|freq|other` (other = ignorado). v5: tabla `kanji(++id,dict,character)`. El pitch se lee de CUALQUIER diccionario activo que lo
   traiga, no solo de los de rol "pitch": hay diccionarios con términos y pitch a la vez y el rol es uno solo.
   `Term.rules` (clases de palabra) no está indexado y es opcional: falta en lo importado antes del deinflector.
 - `src/importer.ts` — unzip (solo .json), term_bank / term_meta_bank / kanji_bank en orden numérico, `bulkAdd` por
@@ -79,7 +79,7 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
 - «Pegar y buscar» (icono de portapapeles DENTRO de la barra, a la derecha, solo con ella vacía; con texto ese hueco
   es de la ✕ del sistema): `navigator.clipboard.readText()` tras el toque; en iOS sale
   la burbuja «Pegar» del sistema y hay que tocarla (ninguna web lee el portapapeles sin confirmación). Se busca la
-  primera línea con texto, hasta 40 caracteres. Sin permiso, aviso con la alternativa de pegar a mano.
+  primera línea con texto, hasta 300 caracteres (cabe una frase). Sin permiso, aviso con la alternativa de pegar a mano.
 - `src/frase.ts` — leer una frase (como Yomitan): con texto japonés de 5+ caracteres, SearchView enseña la frase
   tocable (un span por carácter, fija bajo la barra). Tocar busca la palabra que EMPIEZA ahí: `palabraEn()` prueba a la
   vez todos los cortes de hasta 10 caracteres y sus desconjugaciones (máx. 120 formas, una consulta `equals` por forma:
