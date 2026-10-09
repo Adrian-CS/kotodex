@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, entryKey } from "../db";
 import { recordSearch } from "../history";
@@ -13,6 +13,7 @@ import { RadicalPicker } from "./RadicalPicker";
 import { DibujoKanji } from "./DibujoKanji";
 import { porcentaje, useImportacion } from "../importaciones";
 import { esFrase, palabraEn, soloFrase, trozo } from "../frase";
+import { fraseHtml } from "../anki";
 import { hayDiccionarioKanji } from "../kanji";
 
 /** Diccionarios que han aportado definiciones, en el orden en que salen (o sea, por prioridad). */
@@ -111,6 +112,11 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
   const consulta = foco ? trozo(query, foco.inicio, foco.largo) : query;
   // Una frase larga o con puntuación no se busca entera: no daría nada útil. Se espera al toque.
   const esperandoToque = !foco && soloFrase(query);
+  // Para la tarjeta: la frase con la palabra tocada en negrita. Una cadena, para no romper el memo de las fichas.
+  const frase = useMemo(
+    () => (foco && esFrase(query) ? fraseHtml(query, foco.inicio, foco.largo) : undefined),
+    [query, foco],
+  );
 
   async function tocarFrase(e: React.MouseEvent<HTMLElement>) {
     const i = Number((e.target as HTMLElement).dataset.i);
@@ -285,6 +291,7 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
           inCollection={dupes.get(entryKey(e.expression, e.reading))}
           added={anadidas?.get(entryKey(e.expression, e.reading))}
           onKanji={conKanji ? abrirKanji : undefined}
+          frase={frase}
           t={t}
           idioma={idioma}
         />

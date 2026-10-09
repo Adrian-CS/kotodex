@@ -62,7 +62,8 @@ def test_nota_sin_tipo_de_nota_avisa(client):
 def test_ensure_notetype_crea_y_es_idempotente(client):
     r = client.post("/notetype/ensure", json={})
     assert r.status_code == 200, r.text
-    assert r.json() == {"created": True, "updated_templates": True, "added_fields": [], "warnings": []}
+    creado = {"created": True, "updated_templates": True, "added_fields": [], "warnings": []}
+    assert r.json() == {**creado, "sentence_notetype": creado}
 
     r = client.post("/notetype/ensure", json={})
     assert r.status_code == 200
@@ -226,3 +227,54 @@ def test_copias_se_quedan_las_ultimas(tmp_path):
     assert len(list(copias.directorio(ruta).glob("kotodex-*.json"))) == copias.MAX_COPIAS
     assert copias.ultima(ruta) == {"app": "kotodex", "n": "nueva"}
 
+
+
+def test_tipo_con_frase_lleva_el_campo_y_el_bloque(client):
+    from app.main import service
+
+    client.post("/notetype/ensure", json={})
+    nt = service.col.models.by_name("JP Dict + frase")
+    assert [f["name"] for f in nt["flds"]][-1] == "Sentence"
+    assert "{{#Sentence}}" in nt["tmpls"][0]["afmt"]
+    # El tipo de siempre no se toca: añadirle un campo obligaría a un sync completo.
+    assert "Sentence" not in [f["name"] for f in service.col.models.by_name("JP Dict")["flds"]]
+
+
+def test_la_frase_de_verdad_va_antes_de_las_definiciones():
+    from pathlib import Path
+
+    from app.anki_service import _ANCLA_DEFS
+
+    back = (Path(__file__).resolve().parents[2] / "notetype" / "back.html").read_text(encoding="utf-8")
+    assert _ANCLA_DEFS in back
+
+
+def test_nota_con_frase_va_al_tipo_con_frase(client):
+    from app.main import service
+
+    frase = {**WORD, "Expression": "読む", "Reading": "よむ", "Sentence": "本を<b>読んだ</b>。"}
+    r = client.post("/notes", json={"fields": frase, "deck": "日本語"})
+    assert r.status_code == 200, r.text
+    nota = service.col.get_note(r.json()["note_id"])
+    assert nota.note_type()["name"] == "JP Dict + frase"
+    assert nota["Sentence"] == "本を<b>読んだ</b>。"
+
+    # Frase vacía: al tipo de siempre, sin campo de más.
+    sin = {**WORD, "Expression": "書く", "Reading": "かく", "Sentence": "  "}
+    r = client.post("/notes", json={"fields": sin, "deck": "日本語"})
+    assert r.status_code == 200, r.text
+    assert service.col.get_note(r.json()["note_id"]).note_type()["name"] == "JP Dict"
+
+
+def test_sin_tipo_con_frase_se_crea_al_añadir(client):
+    from app.main import service
+
+    nt = service.col.models.by_name("JP Dict + frase")
+    for nid in service.col.models.nids(nt):
+        service.col.remove_notes([nid])
+    service.col.models.remove(nt["id"])
+
+    frase = {**WORD, "Expression": "話す", "Reading": "はなす", "Sentence": "<b>話して</b>ください"}
+    r = client.post("/notes", json={"fields": frase, "deck": "日本語"})
+    assert r.status_code == 200, r.text
+    assert service.col.get_note(r.json()["note_id"]).note_type()["name"] == "JP Dict + frase"

@@ -193,6 +193,10 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
 ## Contrato: tipo de nota "JP Dict" (no cambiar orden/nombres sin actualizar anki.ts, notetype/ y servidor)
 1 Expression · 2 Reading · 3 Audio (`[sound:…]`, lo pone el servidor) · 4 Pitch (HTML/SVG) · 5 PitchNum (`0` o `0,2`)
 · 6 DefJA · 7 DefES · 8 DefEN. Las defs van envueltas en `<div class="dict" data-dict="Título">`.
+Segundo tipo **"JP Dict + frase"**: los mismos 8 campos + 9 Sentence (la frase escapada, con la forma tocada en
+`<b>`). Es un tipo aparte porque añadir el campo a JP Dict obligaría a un sync completo. Su reverso es back.html con el
+bloque de la frase insertado antes de `<section class="defs">` (no hay back-frase.html que mantener). El servidor
+elige el tipo según venga Sentence o no, y lo crea solo si falta. Ajuste `guardarFrase` (por defecto sí).
 
 ## Formatos Yomitan (v3)
 - term_bank: `[expression, reading("" = igual), defTags, rules, score, glossary[], sequence, termTags]`
@@ -228,7 +232,7 @@ Conjugaciones: 食べた, 食べさせられた, たべている, 読まなか�
 diccionario con la razón debajo del término. `npx tsc -p .` y `npm test` deben salir limpios.
 Para verificar UI móvil: Playwright a 390×844.
 
-Servidor: `cd server && ./venv/bin/python -m pytest tests -q` (55 casos, colección temporal). Para probarlo
+Servidor: `cd server && ./venv/bin/python -m pytest tests -q` (59 casos, colección temporal). Para probarlo
 junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173` y poner esa URL en Ajustes.
 
 ## Gotchas

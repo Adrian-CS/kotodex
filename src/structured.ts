@@ -1,7 +1,7 @@
 // Convierte glosarios de Yomitan (texto o structured-content) en HTML seguro.
 // El mismo HTML se usa en la app y en los campos de la tarjeta de Anki.
 
-const escapeHtml = (s: string) =>
+export const escapeHtml = (s: string) =>
   s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
 const TAGS = new Set(["span", "div", "ol", "ul", "li", "table", "thead", "tbody", "tfoot", "tr", "td", "th", "ruby", "rt", "rp", "details", "summary"]);

@@ -154,6 +154,10 @@ Una sola vez, con el servidor ya en marcha (o desde el botón de Ajustes en la P
 curl -X POST -H "Authorization: Bearer $KOTODEX_TOKEN" localhost:8000/notetype/ensure
 ```
 
+Crea dos tipos: **JP Dict** y **JP Dict + frase** (el mismo con un campo `Sentence`, para las palabras que se
+buscan tocándolas en una frase). Si el segundo falta cuando llega una nota con frase, `/notes` lo crea solo:
+un tipo nuevo no rompe el sync incremental.
+
 ## Exponerlo
 
 El servidor escucha solo en `127.0.0.1`. Hace falta algo que le dé **nombre, certificado HTTPS y

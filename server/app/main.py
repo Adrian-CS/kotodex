@@ -26,7 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from .anki_service import FIELDS, NOTETYPE_NAME, AnkiService, ServiceError
+from .anki_service import FIELDS, NOTETYPE_FRASE, NOTETYPE_NAME, AnkiService, ServiceError
 from . import copias
 from .autosync import AutoSync
 from .config import Settings, load_settings
@@ -132,6 +132,7 @@ async def health() -> dict:
         "status": "ok",
         "notetype": NOTETYPE_NAME,
         "fields": list(FIELDS),
+        "sentence_notetype": NOTETYPE_FRASE,
         "audio": settings.has_audio,
         "sync": settings.can_sync,
         "autosync": {

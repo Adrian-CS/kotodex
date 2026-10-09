@@ -27,6 +27,8 @@ interface Props {
   added?: Added;
   /** Abre la ficha de un kanji. Sin ella (no hay diccionario de kanji) los kanji no se pueden tocar. */
   onKanji?: (kanji: string) => void;
+  /** HTML de la frase de la que salió la palabra (ver fraseHtml), si se llegó tocando una frase. */
+  frase?: string;
   t: T;
   idioma: Idioma;
 }
@@ -35,7 +37,7 @@ interface Props {
  * Memorizada: cada tecla vuelve a pintar SearchView, y sin esto las 20 fichas de la búsqueda
  * anterior se repintaban enteras con cada letra (en el iPhone se notaba al escribir en rōmaji).
  */
-export const EntryCard = memo(function EntryCard({ entry, settings, setSettings, inCollection, added, onKanji, t, idioma }: Props) {
+export const EntryCard = memo(function EntryCard({ entry, settings, setSettings, inCollection, added, onKanji, frase, t, idioma }: Props) {
   const key = entryKey(entry.expression, entry.reading);
   const deck = settings.decks.includes(settings.lastDeck) ? settings.lastDeck : settings.decks[0] ?? "";
   const showReading = entry.reading !== entry.expression;
@@ -43,7 +45,8 @@ export const EntryCard = memo(function EntryCard({ entry, settings, setSettings,
 
   async function addToAnki(allowDuplicate = false) {
     if (!deck) return;
-    const fields = buildFields(entry);
+    const conFrase = !!frase && settings.guardarFrase;
+    const fields = buildFields(entry, conFrase ? frase : undefined);
 
     if (settings.mode === "ankimobile") {
       await db.added.put({ key, deck, at: Date.now() });
@@ -57,9 +60,9 @@ export const EntryCard = memo(function EntryCard({ entry, settings, setSettings,
       await db.added.put({ key, deck, at: Date.now() });
       setStatus({
         kind: "done",
-        text: note.audio
+        text: (note.audio
           ? t("entry.addedWithAudio", { deck: note.deck })
-          : t("entry.addedNoAudio", { deck: note.deck }),
+          : t("entry.addedNoAudio", { deck: note.deck })) + (conFrase ? t("entry.withSentence") : ""),
       });
     } catch (e) {
       const error = e as ServerError;

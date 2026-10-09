@@ -32,6 +32,14 @@ FIELDS: tuple[str, ...] = (
     "Expression", "Reading", "Audio", "Pitch", "PitchNum", "DefJA", "DefES", "DefEN",
 )
 
+# Segundo tipo de nota, igual pero con la frase de la que salió la palabra. Es un tipo aparte porque
+# añadir un campo a "JP Dict" obligaría a un sync completo; crear un tipo nuevo no.
+NOTETYPE_FRASE = NOTETYPE_NAME + " + frase"
+FIELDS_FRASE: tuple[str, ...] = FIELDS + ("Sentence",)
+# La frase va justo antes de las definiciones: primero el contexto, luego el significado.
+_BLOQUE_FRASE = '{{#Sentence}}<div class="sentence">{{Sentence}}</div>{{/Sentence}}\n\n'
+_ANCLA_DEFS = '<section class="defs">'
+
 _CHANGES = SyncCollectionResponse.ChangesRequired
 _FULL = {_CHANGES.FULL_SYNC, _CHANGES.FULL_DOWNLOAD, _CHANGES.FULL_UPLOAD}
 
@@ -115,67 +123,83 @@ class AnkiService:
             raise ServiceError("plantillas_no_leen", 500, ruta=str(directory), error=str(e)) from e
         return front, back, css
 
+    def _templates_frase(self) -> tuple[str, str, str]:
+        """Las de "JP Dict" con el bloque de la frase metido en el reverso: una sola plantilla que mantener."""
+        front, back, css = self._templates()
+        if _ANCLA_DEFS in back:
+            back = back.replace(_ANCLA_DEFS, _BLOQUE_FRASE + _ANCLA_DEFS, 1)
+        else:
+            back = back + "\n" + _BLOQUE_FRASE
+        return front, back, css
+
     def ensure_notetype(self, *, force: bool = False) -> dict:
         """
-        Crea el tipo de nota si no existe y, si ya está, refresca plantillas y CSS.
+        Crea los tipos de nota si no existen y, si ya están, refresca plantillas y CSS.
 
         Añadir campos que falten es un cambio de esquema y obliga a un full sync con AnkiWeb,
-        así que no se hace sin force=True.
+        así que no se hace sin force=True. Crear el tipo «+ frase» no rompe nada.
         """
         front, back, css = self._templates()
         with self._lock:
-            mm = self.col.models
-            existing = mm.by_name(NOTETYPE_NAME)
+            resultado = self._ensure_one(NOTETYPE_NAME, FIELDS, front, back, css, force=force)
+            resultado["sentence_notetype"] = self._ensure_one(
+                NOTETYPE_FRASE, FIELDS_FRASE, *self._templates_frase(), force=force
+            )
+        return resultado
 
-            if existing is None:
-                notetype = mm.new(NOTETYPE_NAME)
-                for name in FIELDS:
-                    mm.add_field(notetype, mm.new_field(name))
-                template = mm.new_template(TEMPLATE_NAME)
-                template["qfmt"] = front
-                template["afmt"] = back
-                mm.add_template(notetype, template)
-                notetype["css"] = css
-                mm.add_dict(notetype)
-                return {"created": True, "updated_templates": True, "added_fields": [], "warnings": []}
+    def _ensure_one(
+        self, nombre: str, campos: tuple[str, ...], front: str, back: str, css: str, *, force: bool
+    ) -> dict:
+        mm = self.col.models
+        existing = mm.by_name(nombre)
 
-            present = [f["name"] for f in existing["flds"]]
-            missing = [name for name in FIELDS if name not in present]
-            warnings: list[str] = []
+        if existing is None:
+            notetype = mm.new(nombre)
+            for name in campos:
+                mm.add_field(notetype, mm.new_field(name))
+            template = mm.new_template(TEMPLATE_NAME)
+            template["qfmt"] = front
+            template["afmt"] = back
+            mm.add_template(notetype, template)
+            notetype["css"] = css
+            mm.add_dict(notetype)
+            return {"created": True, "updated_templates": True, "added_fields": [], "warnings": []}
 
-            if missing and not force:
-                raise ServiceError(
-                    "faltan_campos", 409, notetype=NOTETYPE_NAME, campos=", ".join(missing)
-                )
-            for name in missing:
-                mm.add_field(existing, mm.new_field(name))
-            if missing:
-                warnings.append("Se han añadido campos: el próximo sync con AnkiWeb será completo.")
+        present = [f["name"] for f in existing["flds"]]
+        missing = [name for name in campos if name not in present]
+        warnings: list[str] = []
 
-            # El orden solo importa para leer la tarjeta: las notas se rellenan por nombre.
-            if [f["name"] for f in existing["flds"]][: len(FIELDS)] != list(FIELDS):
-                warnings.append(
-                    "El orden de los campos no coincide con el del contrato; funciona igual, "
-                    "pero conviene arreglarlo a mano en Anki."
-                )
+        if missing and not force:
+            raise ServiceError("faltan_campos", 409, notetype=nombre, campos=", ".join(missing))
+        for name in missing:
+            mm.add_field(existing, mm.new_field(name))
+        if missing:
+            warnings.append("Se han añadido campos: el próximo sync con AnkiWeb será completo.")
 
-            if existing["tmpls"]:
-                existing["tmpls"][0]["qfmt"] = front
-                existing["tmpls"][0]["afmt"] = back
-            else:
-                template = mm.new_template(TEMPLATE_NAME)
-                template["qfmt"] = front
-                template["afmt"] = back
-                mm.add_template(existing, template)
-            existing["css"] = css
-            mm.update_dict(existing)
+        # El orden solo importa para leer la tarjeta: las notas se rellenan por nombre.
+        if [f["name"] for f in existing["flds"]][: len(campos)] != list(campos):
+            warnings.append(
+                "El orden de los campos no coincide con el del contrato; funciona igual, "
+                "pero conviene arreglarlo a mano en Anki."
+            )
 
-            return {
-                "created": False,
-                "updated_templates": True,
-                "added_fields": missing,
-                "warnings": warnings,
-            }
+        if existing["tmpls"]:
+            existing["tmpls"][0]["qfmt"] = front
+            existing["tmpls"][0]["afmt"] = back
+        else:
+            template = mm.new_template(TEMPLATE_NAME)
+            template["qfmt"] = front
+            template["afmt"] = back
+            mm.add_template(existing, template)
+        existing["css"] = css
+        mm.update_dict(existing)
+
+        return {
+            "created": False,
+            "updated_templates": True,
+            "added_fields": missing,
+            "warnings": warnings,
+        }
 
     # ---- notas ---------------------------------------------------------
 
@@ -189,9 +213,13 @@ class AnkiService:
         create_deck: bool = True,
         with_audio: bool = True,
     ) -> dict:
-        unknown = sorted(set(fields) - set(FIELDS))
+        # Con frase, la nota va al tipo «+ frase»; sin ella (o vacía), al de siempre.
+        con_frase = bool(fields.get("Sentence", "").strip())
+        nombre = NOTETYPE_FRASE if con_frase else NOTETYPE_NAME
+        fields = {k: v for k, v in fields.items() if k != "Sentence" or con_frase}
+        unknown = sorted(set(fields) - set(FIELDS_FRASE if con_frase else FIELDS))
         if unknown:
-            raise ServiceError("campos_desconocidos", notetype=NOTETYPE_NAME, campos=", ".join(unknown))
+            raise ServiceError("campos_desconocidos", notetype=nombre, campos=", ".join(unknown))
         if not fields.get("Expression", "").strip():
             raise ServiceError("expression_vacia")
 
@@ -205,9 +233,14 @@ class AnkiService:
             audio_path = self._resolve_audio(values)
 
         with self._lock:
-            notetype = self.col.models.by_name(NOTETYPE_NAME)
+            notetype = self.col.models.by_name(nombre)
+            if notetype is None and con_frase and self.col.models.by_name(NOTETYPE_NAME) is not None:
+                # Servidor actualizado sin volver a pulsar «Crear tipo de nota»: se crea aquí, que
+                # un tipo nuevo no rompe el sync incremental.
+                self._ensure_one(NOTETYPE_FRASE, FIELDS_FRASE, *self._templates_frase(), force=False)
+                notetype = self.col.models.by_name(nombre)
             if notetype is None:
-                raise ServiceError("sin_tipo_de_nota", 409, notetype=NOTETYPE_NAME)
+                raise ServiceError("sin_tipo_de_nota", 409, notetype=nombre)
 
             deck_id = self.col.decks.id_for_name(deck)
             if deck_id is None:

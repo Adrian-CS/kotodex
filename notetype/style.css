@@ -48,3 +48,15 @@ svg.pitch text { fill: var(--ink); font-size: 15px; text-anchor: middle; }
 .def-ja { font-family: "Hiragino Mincho ProN", "Noto Serif JP", "Noto Serif CJK JP", serif; line-height: 1.9; }
 .def-es, .def-en { font-size: 16px; }
 .def ol { margin: 0; padding-left: 1.3em; }
+
+/* Solo en «JP Dict + frase»: la frase de la que salió la palabra, con ella en negrita. */
+.sentence {
+  max-width: 560px;
+  margin: 16px auto 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--rule);
+  text-align: left;
+  font-family: "Hiragino Mincho ProN", "Noto Serif JP", "Noto Serif CJK JP", serif;
+  line-height: 1.9;
+}
+.sentence b { font-weight: 700; text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 4px; }

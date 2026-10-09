@@ -16,6 +16,8 @@ export interface Settings {
   idioma: Idioma | "auto";
   /** Copia de seguridad diaria al servidor (ver copia.ts). Solo tiene efecto en modo servidor. */
   copiaAutomatica: boolean;
+  /** Si la palabra salió de una frase tocada, guardar la frase en la tarjeta (tipo «… + frase»). */
+  guardarFrase: boolean;
 }
 
 const KEY = "jp-dict-settings";
@@ -30,6 +32,7 @@ const DEFAULTS: Settings = {
   serverToken: "",
   idioma: "auto",
   copiaAutomatica: true,
+  guardarFrase: true,
 };
 
 export function loadSettings(): Settings {

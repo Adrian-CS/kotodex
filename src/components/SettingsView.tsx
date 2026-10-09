@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AnkiMode, Settings } from "../settings";
 import { IDIOMAS, type Idioma, type T } from "../i18n";
+import { SUFIJO_FRASE } from "../anki";
 import { ensureNotetype, health, listDecks, sync } from "../server";
 import { copiarAlServidor, exportarArchivo, leerArchivo, restaurarCopia, restaurarDelServidor, ultimaCopiaAutomatica, type Restaurado } from "../copia";
 
@@ -177,6 +178,11 @@ export function SettingsView({ settings, setSettings, t }: Props) {
             </p>
           </>
         )}
+        <label className="toggle">
+          <input type="checkbox" checked={settings.guardarFrase} onChange={e => update("guardarFrase", e.target.checked)} />
+          <span>{t("settings.saveSentence")}</span>
+        </label>
+        <p className="hint">{t("settings.saveSentenceHint", { noteType: settings.noteType + SUFIJO_FRASE })}</p>
       </section>
 
       <section className="settings-group">
