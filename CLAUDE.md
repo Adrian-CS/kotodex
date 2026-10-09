@@ -180,6 +180,8 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   tarjeta (pack → fuentes HTTP → VOICEVOX, con su caché). `src/reproductor.ts`: un solo <audio> que se desbloquea
   reproduciendo 10 ms de silencio DENTRO del toque; iOS no deja sonar un play() que llega tras un await. Se espera a
   que acabe el silencio antes de cambiar la fuente (cortarlo da AbortError y podría no desbloquear).
+  Orden en el servidor: pack → caché → fuentes HTTP → VOICEVOX, cada fase medida y devuelta en `Server-Timing`;
+  si el ▶ tarda más de 2 s, la ficha enseña el desglose (como la búsqueda lenta) y el servidor lo registra.
 - `server/app/autosync.py` + `notify.py` — sync automático cada X horas en un hilo aparte; si falla, avisa por
   correo o webhook con instrucciones. No evita los 409 (los causa un cambio de esquema, no el volumen).
 - `server/` — la API. Ver `server/README.md`: endpoints, despliegue y las trampas de la colección de Anki.
@@ -257,6 +259,10 @@ junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173
 - `server/data/collection.media` tiene ~200.000 ficheros DENTRO del proyecto. Sin `optimizeDeps.entries` en
   vite.config.ts, `npm run dev` se cuelga en "scanning dependencies" porque Vite busca los puntos de entrada
   con un glob `**/*.html` por todo el árbol. No quitar esa opción ni el `server.watch.ignored`.
+- Windows + `localhost`: resuelve primero a ::1 y el addon de Forvo y VOICEVOX solo escuchan en IPv4; cada
+  conexión tarda ~2 s en rendirse antes de probar 127.0.0.1. Con 5 peticiones por palabra, el ▶ tardaba >10 s.
+  `config.sin_localhost()` reescribe las URLs (también las que devuelve el addon). VOICEVOX se precalienta al
+  arrancar (`/initialize_speaker`).
 - El servidor va con UN worker: `anki` abre el SQLite en modo exclusivo. Por lo mismo, no se puede copiar la
   colección desde fuera mientras corre (el proceso se queda colgado); `server/deploy/backup.sh` para el servicio.
 - No poner Cloudflare Access interactivo en el host de la API: tumba el preflight CORS y la PWA deja de funcionar.

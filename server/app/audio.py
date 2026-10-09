@@ -22,6 +22,8 @@ from urllib.parse import quote
 
 import requests
 
+from .config import sin_localhost
+
 # Suficiente para los packs habituales; se puede cambiar sin tocar el código.
 DEFAULT_PATTERNS: tuple[str, ...] = (
     "{expression} - {reading}.*",
@@ -112,7 +114,8 @@ def _download(session: requests.Session, url: str, timeout: float) -> tuple[byte
     """Devuelve (contenido, extensión) si la URL da audio; None si no."""
     if not url.startswith(("http://", "https://")):
         return None
-    response = session.get(url, timeout=timeout, stream=True)
+    # El addon de Forvo devuelve URLs con «localhost»: mismo retraso de Windows que en config.py.
+    response = session.get(sin_localhost(url), timeout=timeout, stream=True)
     response.raise_for_status()
 
     content_type = response.headers.get("Content-Type", "").split(";")[0].strip().lower()

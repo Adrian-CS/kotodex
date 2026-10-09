@@ -18,6 +18,7 @@ import json
 import logging
 import mimetypes
 import secrets
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
@@ -31,6 +32,7 @@ from . import copias
 from .autosync import AutoSync
 from .config import Settings, load_settings
 from .textos import idioma_de, traducir
+from .voicevox import calentar
 
 settings: Settings = load_settings()
 service = AnkiService(settings)
@@ -42,6 +44,10 @@ async def lifespan(_: FastAPI):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     service.open()
     autosync.start()
+    if settings.voicevox_url:
+        # VOICEVOX carga el modelo de cada voz en la primera síntesis (varios segundos); mejor ahora
+        # que en el primer ▶ del día.
+        threading.Thread(target=calentar, args=(settings.voicevox_url, settings.voicevox_speaker), daemon=True).start()
     try:
         yield
     finally:
@@ -57,6 +63,7 @@ if settings.cors_origins:
         allow_origins=list(settings.cors_origins),
         allow_methods=["GET", "POST", "PUT", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "Accept-Language"],
+        expose_headers=["Server-Timing"],
         max_age=86400,
     )
 
@@ -191,10 +198,14 @@ async def audio(body: AudioRequest) -> FileResponse:
     POST y no GET con la palabra en la URL: la PWA lo pide con fetch (lleva el token en la cabecera),
     así que un <audio src> directo no serviría de todas formas.
     """
-    path = await run_in_threadpool(service.audio, body.expression, body.reading, body.pitchnum)
+    path, fases = await run_in_threadpool(service.audio, body.expression, body.reading, body.pitchnum)
     tipo = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    # Server-Timing: la PWA lo enseña cuando el ▶ tarda, para saber qué fase es la lenta.
+    tiempos = ", ".join(f"{nombre};dur={segundos * 1000:.0f}" for nombre, segundos in fases)
     # private: es audio para uso personal, que no lo guarde ninguna caché intermedia.
-    return FileResponse(path, media_type=tipo, headers={"Cache-Control": "private, max-age=86400"})
+    return FileResponse(
+        path, media_type=tipo, headers={"Cache-Control": "private, max-age=86400", "Server-Timing": tiempos}
+    )
 
 
 @app.put("/copia", dependencies=[Auth])

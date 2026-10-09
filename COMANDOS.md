@@ -319,6 +319,7 @@ Copy-Item C:\dev\kotodex\server\data -Destination "C:\backups\kotodex-$(Get-Date
 | «No se pudo conectar con el servidor» en la PWA | El portátil está dormido o apagado; Tailscale caído en el móvil; o falta el origen en `KOTODEX_CORS_ORIGINS`. |
 | «Token incorrecto» | El de Ajustes no coincide con `server\.env`. |
 | Las tarjetas salen sin audio | Anki de escritorio cerrado, o `KOTODEX_AUDIO_URLS` comentado. Mira `audio` en `/health`. |
+| El ▶ tarda mucho | La ficha dice qué fase fue (http = Forvo, voicevox, red). En el registro: `Select-String -Path .\data\kotodex.err.log -Pattern 'kotodex.audio' \| Select-Object -Last 10`. La segunda vez de cada palabra sale de la caché. |
 | `/sync` devuelve 409 | O faltan credenciales de AnkiWeb, o AnkiWeb pide sincronización completa: resuélvela en el ordenador o en AnkiMobile. |
 | No llega el aviso del sync | Mira `kotodex.err.log`: si dice «hay un aviso pero no hay forma de mandarlo», falta configurar SMTP o el webhook. El mismo aviso no se repite hasta pasadas 12 h. |
 | El servidor no arranca | `Get-Content server\data\kotodex.err.log -Tail 30`. Si dice que no puede abrir la colección, hay otro proceso con ella abierta. |

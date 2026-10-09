@@ -269,6 +269,10 @@ vez y la caché acaba siendo tu propio pack.
 La búsqueda de audio se hace **fuera del lock** de la colección, para que una fuente lenta no
 bloquee el resto de peticiones. Si no encuentra nada, la nota se crea igual con el campo vacío.
 
+Cualquier `localhost` de estas URLs se cambia por `127.0.0.1`: en Windows, `localhost` prueba antes IPv6 y
+tarda ~2 s por petición en rendirse. Cada audio deja una línea en el registro con lo que tardó cada fase
+(`audio 橋: 8.31 s (http 6.20 s, voicevox 2.11 s)`), y la misma información va en la cabecera `Server-Timing`.
+
 **3. VOICEVOX** (`KOTODEX_VOICEVOX_URL`), solo si las dos anteriores no tienen la palabra. Es
 sintesis de voz local y gratuita. Dos detalles del port:
 

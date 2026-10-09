@@ -37,6 +37,19 @@ def _accent_para(downstep: int, moras: int) -> int:
     return downstep
 
 
+def calentar(base_url: str, speaker: int) -> None:
+    """Carga el modelo de la voz ya (/initialize_speaker), para que el primer ▶ no lo pague."""
+    try:
+        requests.post(
+            f"{base_url.rstrip('/')}/initialize_speaker",
+            params={"speaker": speaker, "skip_reinit": "true"},
+            timeout=60,
+        ).raise_for_status()
+        log.info("VOICEVOX listo con la voz %s.", speaker)
+    except requests.RequestException as e:
+        log.warning("No se pudo preparar VOICEVOX (se cargará en el primer audio): %s", e)
+
+
 def synthesize(
     base_url: str,
     speaker: int,

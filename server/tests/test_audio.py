@@ -95,3 +95,14 @@ def test_fuente_caida_no_rompe(tmp_path):
 
 def test_sin_fuentes_configuradas(tmp_path):
     assert fetch_audio((), tmp_path, "橋", "はし", 10.0) is None
+
+
+def test_localhost_pasa_a_ipv4():
+    # En Windows, «localhost» prueba antes ::1 y tarda ~2 s por conexión en rendirse.
+    from app.config import sin_localhost
+
+    assert sin_localhost("http://localhost:8770/?term={expression}") == "http://127.0.0.1:8770/?term={expression}"
+    assert sin_localhost("http://LOCALHOST/x") == "http://127.0.0.1/x"
+    assert sin_localhost("http://localhost") == "http://127.0.0.1"
+    assert sin_localhost("https://localhost.example.com/x") == "https://localhost.example.com/x"
+    assert sin_localhost("") == ""

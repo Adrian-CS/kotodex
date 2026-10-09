@@ -189,6 +189,8 @@ def test_audio_para_escuchar_antes_de_añadir(client):
     assert r.headers["content-type"] == "audio/mpeg"
     assert r.content == b"no es un mp3 de verdad"
     assert "private" in r.headers["cache-control"]
+    # Las fases van en Server-Timing para que la PWA sepa qué es lo lento.
+    assert "pack;dur=" in r.headers["server-timing"]
 
 
 def test_audio_que_no_existe_da_404(client):

@@ -101,23 +101,45 @@ export async function guardarCopia(s: Settings, copia: unknown): Promise<void> {
 export const ultimaCopia = (s: Settings) => call<unknown>(s, "/copia");
 
 /** Audios ya pedidos en esta sesión, por palabra: volver a darle a ▶ no vuelve a la red. */
-const audios = new Map<string, Promise<string>>();
+const audios = new Map<string, Promise<AudioListo>>();
+
+export interface AudioListo {
+  url: string;
+  /** Lo que tardó de punta a punta, en ms. */
+  total: number;
+  /** Fases del servidor (Server-Timing: pack, cache, http, voicevox) y, al final, «red»: el resto. */
+  fases: [string, number][];
+}
+
+/** «pack;dur=1, http;dur=6200» → [["pack", 1], ["http", 6200]]. */
+function leerServerTiming(cabecera: string | null): [string, number][] {
+  return (cabecera ?? "").split(",").flatMap(parte => {
+    const [nombre, ...params] = parte.trim().split(";");
+    const dur = params.map(p => p.trim().match(/^dur=([\d.]+)$/)?.[1]).find(Boolean);
+    return nombre && dur ? [[nombre, Number(dur)] as [string, number]] : [];
+  });
+}
 
 /**
  * URL local (blob:) del audio que llevaría la nota. Es el mismo que adjunta el servidor al
  * añadirla. Un 404 llega como ServerError con status 404: la palabra no tiene audio.
  */
-export function audioUrl(s: Settings, expression: string, reading: string, pitchnum: string): Promise<string> {
+export function audioUrl(s: Settings, expression: string, reading: string, pitchnum: string): Promise<AudioListo> {
   const clave = `${expression}\u0000${reading}`;
-  let pendiente = audios.get(clave);
-  if (!pendiente) {
-    pendiente = pedir(s, "/audio", { expression, reading, pitchnum })
-      .then(r => r.blob())
-      .then(b => URL.createObjectURL(b));
-    // Un fallo no se guarda: puede ser la red, y al volver a tocar se reintenta.
-    pendiente.catch(() => audios.delete(clave));
-    audios.set(clave, pendiente);
-  }
+  const previo = audios.get(clave);
+  // Repetir el ▶ sale de memoria: sin tiempos, que ya no son los de esta vez.
+  if (previo) return previo.then(a => ({ ...a, total: 0, fases: [] }));
+  const inicio = performance.now();
+  const pendiente: Promise<AudioListo> = pedir(s, "/audio", { expression, reading, pitchnum }).then(async r => {
+    const url = URL.createObjectURL(await r.blob());
+    const total = performance.now() - inicio;
+    const servidor = leerServerTiming(r.headers.get("Server-Timing"));
+    const enServidor = servidor.reduce((suma, [, ms]) => suma + ms, 0);
+    return { url, total, fases: [...servidor, ["red", Math.max(0, total - enServidor)]] };
+  });
+  // Un fallo no se guarda: puede ser la red, y al volver a tocar se reintenta.
+  pendiente.catch(() => audios.delete(clave));
+  audios.set(clave, pendiente);
   return pendiente;
 }
 

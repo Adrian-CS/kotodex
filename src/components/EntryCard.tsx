@@ -10,6 +10,8 @@ import { razonDeinflexion, type Idioma, type T } from "../i18n";
 import { esKanji } from "../kanji";
 
 const IDIOMA_DE: Record<DefRole, string> = { ja: "ja", es: "es", en: "en" };
+/** A partir de aquí el ▶ enseña el desglose de tiempos. */
+const AUDIO_LENTO_MS = 2000;
 
 type Status =
   | { kind: "idle" }
@@ -74,14 +76,20 @@ export const EntryCard = memo(function EntryCard({ entry, settings, setSettings,
   const conServidor = settings.mode === "server" && !!settings.serverUrl && !!settings.serverToken;
   const [audio, setAudio] = useState<"idle" | "loading" | "playing" | "none" | "error">("idle");
   const [audioError, setAudioError] = useState("");
+  // Si el ▶ tarda, se enseña qué fase fue la lenta (Forvo, VOICEVOX, la red…), como en la búsqueda.
+  const [audioLento, setAudioLento] = useState("");
 
   async function escuchar() {
     prepararAudio();          // en el toque, antes de cualquier await: si no, iOS no deja sonar
     setAudio("loading");
     try {
-      const url = await audioUrl(settings, entry.expression, entry.reading, entry.pitches.join(","));
+      const listo = await audioUrl(settings, entry.expression, entry.reading, entry.pitches.join(","));
+      setAudioLento(listo.total >= AUDIO_LENTO_MS ? t("entry.audioSlow", {
+        total: (listo.total / 1000).toFixed(1),
+        fases: listo.fases.filter(([, ms]) => ms >= 100).map(([n, ms]) => `${n} ${(ms / 1000).toFixed(1)} s`).join(" · "),
+      }) : "");
       setAudio("playing");
-      await reproducir(url);
+      await reproducir(listo.url);
       setAudio("idle");
     } catch (e) {
       if (e instanceof ServerError && e.status === 404) { setAudio("none"); return; }
@@ -169,6 +177,7 @@ export const EntryCard = memo(function EntryCard({ entry, settings, setSettings,
       </footer>
 
       {audio === "none" && <p className="added-note">{t("entry.noAudio")}</p>}
+      {audioLento && <p className="tiempos">{audioLento}</p>}
       {audio === "error" && <p className="error added-note">{audioError}</p>}
       {status.kind === "done" && <p className="added-note">{status.text}</p>}
       {status.kind === "error" && (

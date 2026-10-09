@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -60,6 +61,17 @@ class Settings:
         return bool(self.audio_dirs or self.audio_urls or self.voicevox_url)
 
 
+def sin_localhost(url: str) -> str:
+    """
+    http://localhost:8770/… → http://127.0.0.1:8770/…
+
+    En Windows, «localhost» resuelve primero a ::1 (IPv6). El addon de Forvo y VOICEVOX solo
+    escuchan en IPv4, y Windows tarda ~2 s en dar por rechazada cada conexión a ::1 antes de probar
+    127.0.0.1. Con varias peticiones por palabra, eran más de 10 s antes de que sonara nada.
+    """
+    return re.sub(r"^(https?://)localhost(?=[:/]|$)", r"\g<1>127.0.0.1", url.strip(), flags=re.IGNORECASE)
+
+
 def load_settings() -> Settings:
     token = _env("KOTODEX_TOKEN")
     if not token:
@@ -79,10 +91,10 @@ def load_settings() -> Settings:
         default_deck=_env("KOTODEX_DEFAULT_DECK", "日本語"),
         audio_dirs=_paths("KOTODEX_AUDIO_DIRS"),
         audio_patterns=tuple(p.strip() for p in patterns.split("|") if p.strip()),
-        audio_urls=tuple(u.strip() for u in urls.split("|") if u.strip()),
+        audio_urls=tuple(sin_localhost(u) for u in urls.split("|") if u.strip()),
         audio_cache=Path(_env("KOTODEX_AUDIO_CACHE", str(SERVER_DIR / "data" / "audio-cache"))).expanduser(),
         audio_timeout=float(_env("KOTODEX_AUDIO_TIMEOUT", "10") or 10),
-        voicevox_url=_env("KOTODEX_VOICEVOX_URL"),
+        voicevox_url=sin_localhost(_env("KOTODEX_VOICEVOX_URL")),
         voicevox_speaker=int(_env("KOTODEX_VOICEVOX_SPEAKER", "1") or 1),
         ankiweb_username=_env("ANKIWEB_USERNAME"),
         ankiweb_password=_env("ANKIWEB_PASSWORD"),

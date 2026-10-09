@@ -12,6 +12,7 @@ no pierde notas. Para un backup hay que copiar collection.anki2 *y* collection.a
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from pathlib import Path
@@ -24,6 +25,8 @@ from anki.sync_pb2 import SyncAuth, SyncCollectionResponse
 from .audio import DEFAULT_PATTERNS, cached_audio, fetch_audio, find_audio, guardar_en_cache
 from .config import Settings
 from .voicevox import synthesize
+
+log = logging.getLogger("kotodex.audio")
 
 # Contrato del tipo de nota: el orden y los nombres están fijados en CLAUDE.md y en notetype/.
 NOTETYPE_NAME = "JP Dict"
@@ -51,6 +54,14 @@ def _primer_downstep(pitchnum: str) -> int | None:
         if parte.lstrip("-").isdigit():
             return int(parte)
     return None
+
+
+def _log_fases(palabra: str, fases: list[tuple[str, float]], path: Path | None) -> None:
+    """Una línea por audio resuelto: «audio 橋: 8.31 s (http 6.20 s, voicevox 2.11 s) → 橋 - はし.wav»."""
+    total = sum(t for _, t in fases)
+    detalle = ", ".join(f"{n} {t:.2f} s" for n, t in fases if t >= 0.01)
+    nivel = logging.WARNING if total >= 3 else logging.INFO
+    log.log(nivel, "audio %s: %.2f s (%s) → %s", palabra, total, detalle or "-", path.name if path else "nada")
 
 
 def _escapar(texto: str) -> str:
@@ -230,7 +241,9 @@ class AnkiService:
         # lenta dejaría la colección bloqueada para el resto de peticiones.
         audio_path = None
         if with_audio and not values.get("Audio"):
-            audio_path = self._resolve_audio(values)
+            fases: list[tuple[str, float]] = []
+            audio_path = self._resolve_audio(values, fases)
+            _log_fases(values.get("Expression", ""), fases, audio_path)
 
         with self._lock:
             notetype = self.col.models.by_name(nombre)
@@ -273,7 +286,7 @@ class AnkiService:
                 "duplicate": duplicate,
             }
 
-    def audio(self, expression: str, reading: str, pitchnum: str = "") -> Path:
+    def audio(self, expression: str, reading: str, pitchnum: str = "") -> tuple[Path, list[tuple[str, float]]]:
         """
         El audio que llevaría la nota de esa palabra, para escucharlo antes de añadirla. Es la misma
         resolución (y la misma caché) que usa add_note, así que lo que suena es lo que irá a la tarjeta.
@@ -283,12 +296,16 @@ class AnkiService:
             raise ServiceError("sin_fuentes_audio", 404)
         if not expression.strip():
             raise ServiceError("expression_vacia")
-        path = self._resolve_audio({"Expression": expression.strip(), "Reading": reading.strip(), "PitchNum": pitchnum})
+        fases: list[tuple[str, float]] = []
+        path = self._resolve_audio(
+            {"Expression": expression.strip(), "Reading": reading.strip(), "PitchNum": pitchnum}, fases
+        )
+        _log_fases(expression.strip(), fases, path)
         if path is None:
             raise ServiceError("sin_audio", 404, palabra=expression.strip())
-        return path
+        return path, fases
 
-    def _resolve_audio(self, values: dict[str, str]) -> Path | None:
+    def _resolve_audio(self, values: dict[str, str], fases: list[tuple[str, float]] | None = None) -> Path | None:
         """
         Por orden: pack local (instantáneo), fuentes HTTP (con caché) y, como último recurso,
         síntesis con VOICEVOX. Voz humana antes que sintética siempre que se pueda.
@@ -296,27 +313,34 @@ class AnkiService:
         s = self.settings
         expression = values.get("Expression", "")
         reading = values.get("Reading", "")
+        fases = fases if fases is not None else []
 
+        def medir(nombre: str, funcion):
+            # Cada fase con su tiempo: es lo que llega a la PWA en Server-Timing cuando el ▶ va lento.
+            inicio = time.monotonic()
+            resultado = funcion()
+            fases.append((nombre, time.monotonic() - inicio))
+            return resultado
+
+        # Pack y caché antes que nada que salga a la red: si la palabra ya se descargó o se
+        # sintetizó una vez, no se vuelve a preguntar a Forvo (que es lo lento) ni a VOICEVOX.
         encontrado = (
-            find_audio(s.audio_dirs, s.audio_patterns or DEFAULT_PATTERNS, expression, reading)
-            or fetch_audio(s.audio_urls, s.audio_cache, expression, reading, s.audio_timeout)
+            medir("pack", lambda: find_audio(s.audio_dirs, s.audio_patterns or DEFAULT_PATTERNS, expression, reading))
+            or medir("cache", lambda: cached_audio(s.audio_cache, expression, reading))
+            or medir("http", lambda: fetch_audio(s.audio_urls, s.audio_cache, expression, reading, s.audio_timeout))
         )
         if encontrado or not s.voicevox_url:
             return encontrado
 
-        en_cache = cached_audio(s.audio_cache, expression, reading)
-        if en_cache:
-            return en_cache
-
         # Se sintetiza la LECTURA en kana: así no hay riesgo de que lea mal un kanji. El acento se
         # le impone desde PitchNum, que viene de Kanjium, para que el audio no contradiga al gráfico.
-        wav = synthesize(
+        wav = medir("voicevox", lambda: synthesize(
             s.voicevox_url,
             s.voicevox_speaker,
             reading or expression,
             _primer_downstep(values.get("PitchNum", "")),
             s.audio_timeout,
-        )
+        ))
         if wav is None:
             return None
         return guardar_en_cache(s.audio_cache, expression, reading, wav, ".wav")
