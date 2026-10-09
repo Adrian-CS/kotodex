@@ -64,6 +64,8 @@ test("copia de seguridad: automática al abrir, exportar y restaurar", async ({ 
   // La automática sale al abrir la app.
   await expect.poll(() => recibido.copias.length).toBeGreaterThan(0);
 
+  // Cerrar el teclado, como en el móvil: mientras se escribe, la barra de pestañas está escondida.
+  await page.locator("input[type=search]").blur();
   await page.getByRole("button", { name: "Ajustes", exact: true }).click();
   const descarga = page.waitForEvent("download");
   await page.getByRole("button", { name: "Exportar archivo" }).click();

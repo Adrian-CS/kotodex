@@ -1,11 +1,32 @@
 import { expect, test } from "@playwright/test";
 import { abrirConDiccionarios, buscar } from "./utiles";
 
-test.beforeEach(async ({ page }) => { await abrirConDiccionarios(page); });
+test.beforeEach(async ({ page }, info) => {
+  // La de la lista de reserva importa un diccionario más: lo hace ella.
+  if (!info.title.includes("reserva")) await abrirConDiccionarios(page);
+});
 
-test("はし sale ordenado por frecuencia: 橋, 端, 箸", async ({ page }) => {
+test("はし sale ordenado por frecuencia: 橋, 端, 箸 y 嘴 (sin frecuencia) al final", async ({ page }) => {
   await buscar(page, "はし");
-  await expect(page.locator(".entry-word")).toHaveText(["橋", "端", "箸"]);
+  await expect(page.locator(".entry-word")).toHaveText(["橋", "端", "箸", "嘴"]);
+});
+
+test("lista de frecuencia de reserva: cubre lo que falta en la principal, sin pisarla", async ({ page }) => {
+  await abrirConDiccionarios(page, ["freq2"]);
+  await buscar(page, "はし");
+  // 嘴 sale de la reserva (2800); 箸 sigue con la principal (3000), aunque la reserva diga 10.
+  await expect(page.locator(".entry-word")).toHaveText(["橋", "端", "嘴", "箸"]);
+  await expect(page.locator(".entry").nth(2).locator(".entry-freq")).toContainText("Frecuencias de reserva (test)");
+  await expect(page.locator(".entry").nth(3).locator(".entry-freq")).toContainText("3000");
+});
+
+test("con el teclado abierto en el móvil, la barra de pestañas se esconde", async ({ page }) => {
+  const pestanas = page.locator("nav.tabs");
+  await expect(pestanas).toBeVisible();
+  await page.locator("input[type=search]").focus();
+  await expect(pestanas).toBeHidden();
+  await page.locator("input[type=search]").blur();
+  await expect(pestanas).toBeVisible();
 });
 
 test("今日 trae dos acentos y la sección en español", async ({ page }) => {

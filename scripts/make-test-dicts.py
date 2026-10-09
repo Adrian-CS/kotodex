@@ -16,6 +16,8 @@ mk("jmdict_en.zip", "JMdict (English)", [
     ["箸", "はし", "n", "", 90, ["chopsticks"], 2, ""],
     ["端", "はし", "n", "", 80, ["end (e.g. of street)", "edge", "tip"], 3, ""],
     ["端", "はし", "n", "", 79, ["beginning", "start"], 3, ""],
+    # No está en freq.zip: sin la lista de reserva va el último de はし.
+    ["嘴", "はし", "n", "", 70, ["beak", "bill"], 11, ""],
     ["今日", "きょう", "n", "", 100, ["today", "this day"], 4, ""],
     ["お母さん", "おかあさん", "n", "", 100, ["mother", "mom"], 5, ""],
     # Con el campo "rules" (índice 3) puesto: es lo que usa el deinflector para filtrar.
@@ -59,6 +61,12 @@ mk("freq.zip", "Frecuencias (test)", metas=[
     ["端", "freq", {"reading": "はし", "frequency": {"value": 2500, "displayValue": "2500"}}],
     ["箸", "freq", 3000],
     ["今日", "freq", {"reading": "きょう", "frequency": 90}],
+])
+# Lista de reserva: solo cuenta para lo que no trae freq.zip. 箸 está en las dos y manda la principal
+# (3000); 嘴 solo está aquí, así que con las dos importadas はし queda 橋, 端, 嘴, 箸.
+mk("freq2.zip", "Frecuencias de reserva (test)", metas=[
+    ["嘴", "freq", {"reading": "はし", "frequency": 2800}],
+    ["箸", "freq", 10],
 ])
 # Formato de KANJIDIC: [kanji, onyomi, kunyomi, tags, significados, estadísticas].
 mk("kanji.zip", "KANJIDIC (test)", kanji=[

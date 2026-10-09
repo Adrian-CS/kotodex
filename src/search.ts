@@ -475,26 +475,38 @@ function leerFrecuencia(data: unknown): { valor: number; texto: string; lectura?
 }
 
 /**
- * Pone a cada grupo su frecuencia (menor = más común) según UN diccionario de frecuencias, el de más
- * prioridad. Mezclar varios no tiene sentido: cada uno mide sobre un corpus y una escala distintos.
+ * Pone a cada grupo su frecuencia (menor = más común) según el diccionario de frecuencias de más
+ * prioridad y, para las palabras que ese no trae, según el segundo (el de reserva).
+ *
+ * No se mezclan más: cada uno mide sobre un corpus distinto. La reserva solo entra si los dos
+ * cuentan por PUESTO (JPDB, BCCWJ…), porque un puesto se puede comparar aproximadamente con otro;
+ * un número de apariciones no. Sin reserva, una palabra ausente del primero (幹事 en una lista
+ * pequeña) se iba detrás de palabras mucho más raras que sí estaban.
  */
-async function anotarFrecuencias<G extends { expression: string; reading: string; frec: number; frecTexto?: string }>(
-  grupos: G[], comparar: (a: G, b: G) => number, dict: Dictionary,
+async function anotarFrecuencias<G extends { expression: string; reading: string; frec: number; frecTexto?: string; frecTitulo?: string }>(
+  grupos: G[], comparar: (a: G, b: G) => number, dicts: Dictionary[],
 ): Promise<void> {
+  const porPuesto = (d: Dictionary) => d.frequencyMode !== "occurrence-based";
+  const usados = dicts.length > 1 && porPuesto(dicts[0]) && porPuesto(dicts[1]) ? dicts.slice(0, 2) : dicts.slice(0, 1);
   const candidatos = grupos.length <= MAX_CON_FRECUENCIA ? grupos : [...grupos].sort(comparar).slice(0, MAX_CON_FRECUENCIA);
+  const ids = new Set(usados.map(d => d.id));
   const metas = (await porClaves(db.metas, "expression", [...new Set(candidatos.map(g => g.expression))]))
-    .filter(m => m.dict === dict.id && m.mode === "freq");
-  const signo = dict.frequencyMode === "occurrence-based" ? -1 : 1;
+    .filter(m => ids.has(m.dict) && m.mode === "freq");
   for (const g of candidatos) {
     const lectura = toHiragana(g.reading);
-    for (const m of metas) {
-      if (m.expression !== g.expression) continue;
-      const f = leerFrecuencia(m.data);
-      if (!f) continue;
-      // Una entrada con lectura solo vale para esa lectura: 生 tiene una frecuencia por cada una.
-      if (f.lectura && toHiragana(f.lectura) !== lectura) continue;
-      const valor = signo * f.valor;
-      if (valor < g.frec) { g.frec = valor; g.frecTexto = f.texto; }
+    // En orden: el de reserva solo cuenta si el principal no tiene la palabra.
+    for (const dict of usados) {
+      const signo = dict.frequencyMode === "occurrence-based" ? -1 : 1;
+      for (const m of metas) {
+        if (m.dict !== dict.id || m.expression !== g.expression) continue;
+        const f = leerFrecuencia(m.data);
+        if (!f) continue;
+        // Una entrada con lectura solo vale para esa lectura: 生 tiene una frecuencia por cada una.
+        if (f.lectura && toHiragana(f.lectura) !== lectura) continue;
+        const valor = signo * f.valor;
+        if (valor < g.frec) { g.frec = valor; g.frecTexto = f.texto; g.frecTitulo = dict.title; }
+      }
+      if (Number.isFinite(g.frec)) break;
     }
   }
 }
@@ -510,7 +522,7 @@ async function armar(
   relevanciaCruzada?: (t: Term) => number,
   repartir = false,
 ): Promise<Entry[]> {
-  const groups = new Map<string, { expression: string; reading: string; score: number; rel: number; cruzado: boolean; prioridad: number; terms: Term[]; inflected?: Inflected; frec: number; frecTexto?: string }>();
+  const groups = new Map<string, { expression: string; reading: string; score: number; rel: number; cruzado: boolean; prioridad: number; terms: Term[]; inflected?: Inflected; frec: number; frecTexto?: string; frecTitulo?: string }>();
   const seen = new Set<number>();
   for (const t of terms) {
     if (seen.has(t.id!)) continue;
@@ -539,10 +551,10 @@ async function armar(
   const comparar = (a: Grupo, b: Grupo) =>
     rank(a) - rank(b) || a.rel - b.rel || a.frec - b.frec || b.score - a.score || a.expression.length - b.expression.length;
 
-  const frecDict = [...dicts.values()]
+  const frecDicts = [...dicts.values()]
     .filter(d => d.role === "freq")
-    .sort((a, b) => (a.order ?? a.id!) - (b.order ?? b.id!))[0];
-  if (frecDict) await anotarFrecuencias([...groups.values()], comparar, frecDict);
+    .sort((a, b) => (a.order ?? a.id!) - (b.order ?? b.id!));
+  if (frecDicts.length) await anotarFrecuencias([...groups.values()], comparar, frecDicts);
 
   /**
    * Reparte los huecos entre diccionarios en vez de dárselos todos al que más coincidencias tenga.
@@ -660,7 +672,7 @@ async function armar(
       if (suya && suya !== lectura) continue;
       for (const p of m.data?.pitches ?? []) if (typeof p.position === "number") pitches.add(p.position);
     }
-    const frecuencia = g.frecTexto && frecDict ? { texto: g.frecTexto, dictTitle: frecDict.title } : undefined;
+    const frecuencia = g.frecTexto && g.frecTitulo ? { texto: g.frecTexto, dictTitle: g.frecTitulo } : undefined;
     const rangoFrecuencia = Number.isFinite(g.frec) ? g.frec : undefined;
     return { expression: g.expression, reading: g.reading, pitches: [...pitches], defs, sections, inflected: g.inflected, frecuencia, rangoFrecuencia };
   });

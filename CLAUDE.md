@@ -71,8 +71,9 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   score. Máx 20. Pitch desde metas. Sin coincidencia exacta se busca también por PREFIJO de lectura (かいせ, kaise →
   解析), detrás de lo que dé el deinflector (かいせ es imperativo de 介す, pero casi siempre es 解析 a medias).
 - Frecuencia: diccionarios con `term_meta_bank` de modo `freq` (JPDB, BCCWJ…), rol «freq». Ordena DESPUÉS de exacta y
-  relevancia y ANTES del score de JMdict; usa solo el de más prioridad (cada uno mide en su escala) y respeta
-  `frequencyMode` de index.json (puesto vs. apariciones). Se consulta para los 40 mejores candidatos, no para todos:
+  relevancia y ANTES del score de JMdict; usa el de más prioridad y, para lo que ese no trae, el SEGUNDO como
+  reserva, solo si los dos son por puesto (un puesto se compara con otro; apariciones no). Sin reserva, lo ausente
+  de la lista va al final (幹事 detrás de palabras más raras). Respeta `frequencyMode` de index.json. Se consulta para los 40 mejores candidatos, no para todos:
   es una consulta por expresión. También decide qué lista va primero en las búsquedas latinas (sake → 酒, no 辛口).
 - `?q=` en la URL abre la app con esa búsqueda. En iOS no sirve para la app de la pantalla de inicio: los enlaces
   y Atajos abren Safari, que tiene su propio almacenamiento (sin los diccionarios importados).
@@ -100,6 +101,8 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   se reinician al cambiar la búsqueda. El filtro entra en `search()`, no se aplica encima: así el
   diccionario elegido aporta los 20 resultados y no solo los que sobrevivían al reparto. La lista de
   botones se calcula con la búsqueda sin filtrar y se conserva, o al filtrar desaparecerían.
+- Barra de pestañas: en pantallas táctiles se esconde mientras hay un campo de texto con foco (`useEscribiendoEnMovil`
+  en App.tsx). Con el teclado abierto, iOS la subía encima del teclado y tapaba los resultados.
 - `components/SyncBanner.tsx` — banda de aviso si `/health` dice que el último sync automático falló.
   Es el aviso que se ve siempre: el correo y ntfy hay que configurarlos.
 - Prioridad de diccionarios: `Dictionary.order` (flechas en Diccionarios). Decide el orden de los
@@ -228,7 +231,8 @@ sistema). Tres decisiones:
 ```bash
 npm install && python3 scripts/make-test-dicts.py && npm run dev
 ```
-Importar los 6 zips de `test-dicts/`, buscar はし (3 entradas ordenadas por frecuencia: 橋, 端, 箸) y 今日 (dos pitches [1],[0], con ES).
+Importar los 6 zips de `test-dicts/` (sin `freq2.zip`), buscar はし (4 entradas: 橋, 端, 箸 por frecuencia y 嘴, sin ella,
+al final; con `freq2.zip`, la reserva, 嘴 pasa delante de 箸) y 今日 (dos pitches [1],[0], con ES).
 Tocar 食 en 食べる abre su ficha (ショク・ジキ, た.べる, 9 trazos) con 食べる en «Palabras que empiezan por 食».
 Conjugaciones: 食べた, 食べさせられた, たべている, 読まなかった, 高くない, 勉強しました → todas deben caer en su forma de
 diccionario con la razón debajo del término. `npx tsc -p .` y `npm test` deben salir limpios.

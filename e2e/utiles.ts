@@ -10,13 +10,14 @@ export async function ajustes(page: Page, s: Record<string, unknown>) {
 }
 
 /** Abre la app, importa los diccionarios de prueba y vuelve a la búsqueda. */
-export async function abrirConDiccionarios(page: Page) {
+export async function abrirConDiccionarios(page: Page, extra: string[] = []) {
+  const zips = [...DICCIONARIOS, ...extra.map(n => `test-dicts/${n}.zip`)];
   // KanjiVG se pide a GitHub: en las pruebas no se sale a la red.
   await page.route("https://raw.githubusercontent.com/**", r => r.fulfill({ status: 404 }));
   await page.goto("/");
   await page.getByRole("button", { name: "Diccionarios", exact: true }).click();
-  await page.locator('input[type=file][accept*=zip]').setInputFiles(DICCIONARIOS);
-  await expect(page.locator(".dict-item")).toHaveCount(DICCIONARIOS.length, { timeout: 30_000 });
+  await page.locator('input[type=file][accept*=zip]').setInputFiles(zips);
+  await expect(page.locator(".dict-item")).toHaveCount(zips.length, { timeout: 30_000 });
   await expect(page.getByText("Importar .zip")).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Buscar", exact: true }).click();
 }
