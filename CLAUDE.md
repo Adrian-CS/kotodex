@@ -153,8 +153,12 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   menos de 2 min, sustituye a la anterior (escribir 食べる no deja 食, 食べ y 食べる).
 - `src/settings.ts` — mazos, último mazo, tipo de nota, perfil, etiquetas, modo (`ankimobile`|`server`),
   URL y token del servidor (localStorage, PWA propia).
-- `src/server.ts` — cliente del servidor: health, decks, notetype/ensure, notes, sync. Los errores de la API se
+- `src/server.ts` — cliente del servidor: health, decks, notetype/ensure, notes, sync, audio. Los errores de la API se
   enseñan tal cual en la UI.
+- Escuchar antes de añadir (▶ en cada ficha, solo en modo servidor): `POST /audio` devuelve el MISMO audio que irá a la
+  tarjeta (pack → fuentes HTTP → VOICEVOX, con su caché). `src/reproductor.ts`: un solo <audio> que se desbloquea
+  reproduciendo 10 ms de silencio DENTRO del toque; iOS no deja sonar un play() que llega tras un await. Se espera a
+  que acabe el silencio antes de cambiar la fuente (cortarlo da AbortError y podría no desbloquear).
 - `server/app/autosync.py` + `notify.py` — sync automático cada X horas en un hilo aparte; si falla, avisa por
   correo o webhook con instrucciones. No evita los 409 (los causa un cambio de esquema, no el volumen).
 - `server/` — la API. Ver `server/README.md`: endpoints, despliegue y las trampas de la colección de Anki.
@@ -203,7 +207,7 @@ Conjugaciones: 食べた, 食べさせられた, たべている, 読まなか�
 diccionario con la razón debajo del término. `npx tsc -p .` y `npm test` deben salir limpios.
 Para verificar UI móvil: Playwright a 390×844.
 
-Servidor: `cd server && ./venv/bin/python -m pytest tests -q` (13 casos, colección temporal). Para probarlo
+Servidor: `cd server && ./venv/bin/python -m pytest tests -q` (51 casos, colección temporal). Para probarlo
 junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173` y poner esa URL en Ajustes.
 
 ## Gotchas
@@ -237,6 +241,5 @@ junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173
 1. **Terminar el despliegue**: `tailscale serve` en el portátil, app de Tailscale en el iPhone, y poner el origen
    de Pages en `KOTODEX_CORS_ORIGINS` (la PWA ya se despliega sola con cada push a main). Para el audio, decidir fuente: el addon Forvo local
    (exige Anki de escritorio abierto) o clave de la API de Forvo.
-2. Preview del audio en la PWA (el servidor ya lo resuelve y lo adjunta).
-3. Importación en Web Worker con progreso; imágenes de structured-content (guardar blobs).
-4. Historial / lista de palabras añadidas.
+2. Importación en Web Worker con progreso; imágenes de structured-content (guardar blobs).
+3. Historial / lista de palabras añadidas.

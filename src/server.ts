@@ -48,7 +48,8 @@ export class ServerError extends Error {
 
 const baseUrl = (s: Settings) => s.serverUrl.trim().replace(/\/+$/, "");
 
-async function call<T>(s: Settings, path: string, body?: unknown): Promise<T> {
+/** La petición con token e idioma; lanza ServerError con el texto de la API si no va bien. */
+async function pedir(s: Settings, path: string, body?: unknown): Promise<Response> {
   const url = baseUrl(s);
   if (!url) throw new ServerError("Falta la dirección del servidor en Ajustes.", 0);
 
@@ -81,7 +82,32 @@ async function call<T>(s: Settings, path: string, body?: unknown): Promise<T> {
       response.status === 409 && typeof detail === "string" && detail.includes("ya está en la colección"),
     );
   }
-  return response.json() as Promise<T>;
+  return response;
+}
+
+async function call<T>(s: Settings, path: string, body?: unknown): Promise<T> {
+  return (await pedir(s, path, body)).json() as Promise<T>;
+}
+
+/** Audios ya pedidos en esta sesión, por palabra: volver a darle a ▶ no vuelve a la red. */
+const audios = new Map<string, Promise<string>>();
+
+/**
+ * URL local (blob:) del audio que llevaría la nota. Es el mismo que adjunta el servidor al
+ * añadirla. Un 404 llega como ServerError con status 404: la palabra no tiene audio.
+ */
+export function audioUrl(s: Settings, expression: string, reading: string, pitchnum: string): Promise<string> {
+  const clave = `${expression}\u0000${reading}`;
+  let pendiente = audios.get(clave);
+  if (!pendiente) {
+    pendiente = pedir(s, "/audio", { expression, reading, pitchnum })
+      .then(r => r.blob())
+      .then(b => URL.createObjectURL(b));
+    // Un fallo no se guarda: puede ser la red, y al volver a tocar se reintenta.
+    pendiente.catch(() => audios.delete(clave));
+    audios.set(clave, pendiente);
+  }
+  return pendiente;
 }
 
 export const health = (s: Settings) => call<ServerHealth>(s, "/health");

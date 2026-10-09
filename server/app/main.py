@@ -6,19 +6,21 @@ Endpoints:
   GET  /decks             mazos de la colección
   POST /notetype/ensure   crea o actualiza el tipo de nota «JP Dict»
   POST /notes             crea una nota (resuelve el audio si hay pack)
+  POST /audio             el audio de una palabra, para escucharlo antes de añadirla
   POST /sync              sincroniza con AnkiWeb
 """
 
 from __future__ import annotations
 
 import logging
+import mimetypes
 import secrets
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from .anki_service import FIELDS, NOTETYPE_NAME, AnkiService, ServiceError
@@ -106,6 +108,13 @@ class CheckRequest(BaseModel):
     words: list[WordRef] = Field(default_factory=list, max_length=50)
 
 
+class AudioRequest(BaseModel):
+    expression: str
+    reading: str = ""
+    # Para que VOICEVOX ponga el acento del gráfico, igual que al crear la nota.
+    pitchnum: str = ""
+
+
 class SyncRequest(BaseModel):
     wait_media: bool = True
     media_timeout: float = Field(default=120.0, ge=0, le=600)
@@ -169,6 +178,18 @@ async def check_notes(body: CheckRequest) -> dict:
             for w, n in zip(body.words, conteos)
         ]
     }
+
+
+@app.post("/audio", dependencies=[Auth])
+async def audio(body: AudioRequest) -> FileResponse:
+    """
+    POST y no GET con la palabra en la URL: la PWA lo pide con fetch (lleva el token en la cabecera),
+    así que un <audio src> directo no serviría de todas formas.
+    """
+    path = await run_in_threadpool(service.audio, body.expression, body.reading, body.pitchnum)
+    tipo = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    # private: es audio para uso personal, que no lo guarde ninguna caché intermedia.
+    return FileResponse(path, media_type=tipo, headers={"Cache-Control": "private, max-age=86400"})
 
 
 @app.post("/sync", dependencies=[Auth])

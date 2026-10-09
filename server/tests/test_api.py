@@ -167,3 +167,23 @@ def test_token_invalido_traducido(client):
     r = client.get("/decks", headers={"Authorization": "Bearer otro", "Accept-Language": "ja"})
     assert r.status_code == 401
     assert "トークン" in r.json()["detail"]
+
+
+def test_audio_para_escuchar_antes_de_añadir(client):
+    r = client.post("/audio", json={"expression": "食べる", "reading": "たべる"})
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "audio/mpeg"
+    assert r.content == b"no es un mp3 de verdad"
+    assert "private" in r.headers["cache-control"]
+
+
+def test_audio_que_no_existe_da_404(client):
+    r = client.post("/audio", json={"expression": "橋", "reading": "はし"}, headers={"Accept-Language": "es"})
+    assert r.status_code == 404
+    assert "橋" in r.json()["detail"]
+
+
+def test_audio_necesita_token(client):
+    r = client.post("/audio", json={"expression": "食べる"}, headers={"Authorization": ""})
+    assert r.status_code == 401
+

@@ -240,6 +240,21 @@ class AnkiService:
                 "duplicate": duplicate,
             }
 
+    def audio(self, expression: str, reading: str, pitchnum: str = "") -> Path:
+        """
+        El audio que llevaría la nota de esa palabra, para escucharlo antes de añadirla. Es la misma
+        resolución (y la misma caché) que usa add_note, así que lo que suena es lo que irá a la tarjeta.
+        No toca la colección: se puede llamar mientras otra petición escribe.
+        """
+        if not self.settings.has_audio:
+            raise ServiceError("sin_fuentes_audio", 404)
+        if not expression.strip():
+            raise ServiceError("expression_vacia")
+        path = self._resolve_audio({"Expression": expression.strip(), "Reading": reading.strip(), "PitchNum": pitchnum})
+        if path is None:
+            raise ServiceError("sin_audio", 404, palabra=expression.strip())
+        return path
+
     def _resolve_audio(self, values: dict[str, str]) -> Path | None:
         """
         Por orden: pack local (instantáneo), fuentes HTTP (con caché) y, como último recurso,

@@ -54,6 +54,16 @@ MENSAJES: dict[str, dict[str, str]] = {
         "en": "Expression is empty.",
         "ja": "Expression が空です。",
     },
+    "sin_audio": {
+        "es": "No hay audio para «{palabra}» en ninguna fuente configurada.",
+        "en": "No audio for “{palabra}” in any configured source.",
+        "ja": "「{palabra}」の音声は、設定されたどのソースにもありません。",
+    },
+    "sin_fuentes_audio": {
+        "es": "El servidor no tiene ninguna fuente de audio configurada (KOTODEX_AUDIO_DIRS, KOTODEX_AUDIO_URLS o VOICEVOX).",
+        "en": "The server has no audio source configured (KOTODEX_AUDIO_DIRS, KOTODEX_AUDIO_URLS or VOICEVOX).",
+        "ja": "サーバーに音声ソースが設定されていません（KOTODEX_AUDIO_DIRS、KOTODEX_AUDIO_URLS、VOICEVOX）。",
+    },
     "sin_tipo_de_nota": {
         "es": "El tipo de nota «{notetype}» no existe todavía. Llama antes a POST /notetype/ensure.",
         "en": "The note type “{notetype}” does not exist yet. Call POST /notetype/ensure first.",

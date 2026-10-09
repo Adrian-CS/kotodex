@@ -4,7 +4,8 @@ import { pitchField } from "../pitch";
 import type { DefRole, Entry } from "../search";
 import type { Settings } from "../settings";
 import { ankiMobileUrl, buildFields } from "../anki";
-import { addNote, ServerError, type WordCheck } from "../server";
+import { addNote, audioUrl, ServerError, type WordCheck } from "../server";
+import { prepararAudio, reproducir } from "../reproductor";
 import { razonDeinflexion, type Idioma, type T } from "../i18n";
 import { esKanji } from "../kanji";
 
@@ -66,6 +67,26 @@ export const EntryCard = memo(function EntryCard({ entry, settings, setSettings,
     }
   }
 
+  // ▶ Escuchar: solo con servidor, que es quien resuelve el audio (pack, fuentes HTTP o VOICEVOX).
+  const conServidor = settings.mode === "server" && !!settings.serverUrl && !!settings.serverToken;
+  const [audio, setAudio] = useState<"idle" | "loading" | "playing" | "none" | "error">("idle");
+  const [audioError, setAudioError] = useState("");
+
+  async function escuchar() {
+    prepararAudio();          // en el toque, antes de cualquier await: si no, iOS no deja sonar
+    setAudio("loading");
+    try {
+      const url = await audioUrl(settings, entry.expression, entry.reading, entry.pitches.join(","));
+      setAudio("playing");
+      await reproducir(url);
+      setAudio("idle");
+    } catch (e) {
+      if (e instanceof ServerError && e.status === 404) { setAudio("none"); return; }
+      setAudioError(e instanceof ServerError ? e.message : t("entry.audioFailed"));
+      setAudio("error");
+    }
+  }
+
   const sending = status.kind === "sending";
   const label = sending ? t("entry.adding") : added ? t("entry.addAgain") : t("entry.add");
 
@@ -121,6 +142,17 @@ export const EntryCard = memo(function EntryCard({ entry, settings, setSettings,
       )}
 
       <footer className="entry-actions">
+        {conServidor && (
+          <button
+            className="boton-escuchar"
+            onClick={escuchar}
+            disabled={audio === "loading" || audio === "playing" || audio === "none"}
+            aria-label={audio === "none" ? t("entry.noAudio") : t("entry.listen")}
+            title={audio === "none" ? t("entry.noAudio") : t("entry.listen")}
+          >
+            {audio === "loading" ? "…" : audio === "none" ? "—" : "▶"}
+          </button>
+        )}
         <select
           value={deck}
           onChange={e => setSettings({ ...settings, lastDeck: e.target.value })}
@@ -133,6 +165,8 @@ export const EntryCard = memo(function EntryCard({ entry, settings, setSettings,
         </button>
       </footer>
 
+      {audio === "none" && <p className="added-note">{t("entry.noAudio")}</p>}
+      {audio === "error" && <p className="error added-note">{audioError}</p>}
       {status.kind === "done" && <p className="added-note">{status.text}</p>}
       {status.kind === "error" && (
         <p className="error added-note">

@@ -15,6 +15,7 @@ la app y no depende de la longitud de la URL.
 | POST | `/notetype/ensure` | Crea el tipo de nota «JP Dict» o refresca plantillas y CSS. |
 | POST | `/notes` | Crea una nota. Busca el audio si hay pack configurado. |
 | POST | `/notes/check` | Cuántas notas hay ya con cada palabra, en cualquier tipo de nota. |
+| POST | `/audio` | El audio de una palabra (`expression`, `reading`, `pitchnum`), para escucharlo antes de añadirla. Misma resolución y caché que `/notes`; 404 si no hay. |
 | POST | `/sync` | Sincroniza con AnkiWeb. |
 
 Todos menos `/health` piden `Authorization: Bearer $KOTODEX_TOKEN`.

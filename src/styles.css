@@ -130,6 +130,9 @@ svg.pitch text { fill: var(--ink); font-size: 15px; text-anchor: middle; }
 
 .entry-actions { display: flex; gap: 8px; margin-top: 20px; }
 .entry-actions select { flex: 1; min-width: 0; }
+/* ▶ Escuchar: cuadrado, en 藍 porque es una acción. */
+.boton-escuchar { flex: none; width: 44px; padding: 0; color: var(--accent); font-size: 16px; }
+
 .added-note { margin: 8px 0 0; font-size: 13px; color: var(--muted); text-align: right; }
 .dup-note { margin: 16px 0 0; font-size: 13px; color: var(--accent); }
 
