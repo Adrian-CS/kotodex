@@ -10,6 +10,7 @@
     "test": "node --experimental-strip-types scripts/test-deinflect.ts && node --experimental-strip-types scripts/test-deinflect-ko.ts && node --experimental-strip-types scripts/test-glosses.ts && node --experimental-strip-types scripts/test-romanizacion.ts"
   },
   "dependencies": {
+    "@johnmorrisdotca/bushu": "^1.0.2",
     "dexie": "^4.4.6",
     "dexie-react-hooks": "^4.4.0",
     "fflate": "^0.8.3",

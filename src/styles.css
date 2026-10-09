@@ -46,6 +46,10 @@ button, input, select { font: inherit; color: inherit; }
 
 /* Búsqueda */
 .search-bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; background: var(--paper); padding: 12px 0; }
+.search-bar { display: flex; gap: 8px; }
+.search-bar input { flex: 1; min-width: 0; }
+/* Botón de radicales: cuadrado de la altura de la barra, con el kanji 部 en mincho. */
+.boton-radicales { flex: none; width: 48px; height: 48px; padding: 0; border-radius: 12px; font-family: var(--mincho); font-size: 22px; }
 .search-bar input {
   width: 100%; height: 48px; padding: 0 16px; border: 1px solid var(--rule); border-radius: 12px;
   background: var(--sheet); font-size: 20px; -webkit-appearance: none; appearance: none;
@@ -253,3 +257,21 @@ button.text { border: 0; background: none; padding: 0 8px; height: 36px; }
 span.hoja-parte { border-style: dashed; }
 .hoja-radical-nombre { color: var(--muted); font-size: 14px; }
 .hoja-volver { margin: -4px 0 4px -8px; }
+
+/* Búsqueda por radicales. Elegido = acción, en 藍; atenuado = ya no puede encajar con lo elegido. */
+/* Cabecera y resultados fijos arriba; solo la cuadrícula hace scroll. Si todo se desplazara junto,
+   al tocar un radical de abajo los kanji encontrados quedarían fuera de la vista. */
+.hoja-radicales { height: 85vh; overflow: hidden; }
+.hoja-radicales .hoja-contenido { box-sizing: border-box; height: 100%; display: flex; flex-direction: column; padding-top: 0; }
+.radicales-cuadricula { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.radicales-cabecera { flex: none; display: flex; align-items: center; gap: 4px;
+  margin: 0 -16px 8px; padding: 12px 8px 8px 16px; border-bottom: 1px solid var(--rule); }
+.radicales-consulta { flex: 1; min-width: 0; font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.radicales-resultado { flex: none; max-height: 30vh; overflow: auto; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--rule); }
+.radicales-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 4px; }
+.radicales-trazos { min-width: 22px; color: var(--muted); font-size: 12px; text-align: center; }
+.radicales-kanji { width: 44px; height: 44px; padding: 0; font-family: var(--mincho); font-size: 24px; }
+.radical { width: 36px; height: 36px; padding: 0; border-radius: 8px; font-family: var(--mincho); font-size: 18px; }
+.radical.elegido { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.radical:disabled { opacity: 0.25; cursor: default; }
+.radicales-fuente { margin: 12px 0 0; color: var(--muted); font-size: 11px; }

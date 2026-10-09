@@ -125,6 +125,11 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   grupos con `kvg:element` hijos directos del kanji). Número y nombre del radical en `src/radicales.ts`, generado con
   Python desde Unicode (NFKC de U+2F00–2FD5 + nombre oficial). Las partes se tocan y apilan fichas (`pilaKanji`
   en SearchView) con «← Volver».
+- `src/busquedaRadicales.ts` + `components/RadicalPicker.tsx` — buscar kanji por radicales (botón 部 junto a la barra).
+  Datos y lógica de `@johnmorrisdotca/bushu`: RADKFILE/KANJIDIC2 (EDRDG, CC BY-SA 4.0) y nombres de Kanji alive
+  (CC BY 4.0), con la atribución al pie del selector. Se carga con `import()` (72 KB gzip). La cuadrícula tiene su
+  propio scroll: si se desplazara toda la hoja, los kanji encontrados se perderían de vista. Tocar un kanji lo AÑADE
+  a la consulta (se puede componer 懐石 en dos pasos).
 - `src/history.ts` + `components/HistoryView.tsx` — historial indexado por la palabra a la que se llega, no por
   lo tecleado: buscar 食べた y 食べる deja una entrada. Si la consulta nueva empieza por la anterior y han pasado
   menos de 2 min, sustituye a la anterior (escribir 食べる no deja 食, 食べ y 食べる).

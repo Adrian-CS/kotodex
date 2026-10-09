@@ -9,6 +9,7 @@ import type { Settings } from "../settings";
 import type { Idioma, T } from "../i18n";
 import { EntryCard } from "./EntryCard";
 import { KanjiSheet } from "./KanjiSheet";
+import { RadicalPicker } from "./RadicalPicker";
 import { hayDiccionarioKanji } from "../kanji";
 
 /** Diccionarios que han aportado definiciones, en el orden en que salen (o sea, por prioridad). */
@@ -63,6 +64,7 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
   const [pilaKanji, setPilaKanji] = useState<string[]>([]);
   const abrirKanji = useCallback((k: string) => setPilaKanji([k]), []);
   const kanji = pilaKanji.at(-1) ?? null;
+  const [radicalesAbierto, setRadicalesAbierto] = useState(false);
   const conKanji = useLiveQuery(() => hayDiccionarioKanji(), [dictHuella]);
 
   // Qué fichas ya se añadieron, en UNA consulta para todas. Antes cada ficha tenía la suya, y eran
@@ -139,6 +141,8 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
           autoCorrect="off"
           spellCheck={false}
         />
+        <button className="boton-radicales" lang="ja" onClick={() => setRadicalesAbierto(true)}
+          aria-label={t("radicals.open")} title={t("radicals.open")}>部</button>
         {buscando && <div className="cargando" role="status" aria-label={t("search.loading")} />}
       </div>
 
@@ -196,6 +200,13 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
         />
       ))}
 
+      <RadicalPicker
+        abierto={radicalesAbierto}
+        onClose={() => setRadicalesAbierto(false)}
+        onKanji={k => setQuery(query + k)}
+        consulta={query}
+        t={t}
+      />
       <KanjiSheet
         kanji={kanji}
         anterior={pilaKanji.at(-2)}
