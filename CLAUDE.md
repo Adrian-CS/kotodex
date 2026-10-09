@@ -165,10 +165,16 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   usa: es una API interna sin licencia para terceros. El lienzo nace con 300×150: comprobar ancho Y alto al dimensionarlo.
 - `src/history.ts` + `components/HistoryView.tsx` — historial indexado por la palabra a la que se llega, no por
   lo tecleado: buscar 食べた y 食べる deja una entrada. Si la consulta nueva empieza por la anterior y han pasado
-  menos de 2 min, sustituye a la anterior (escribir 食べる no deja 食, 食べ y 食べる).
+  menos de 2 min, sustituye a la anterior (escribir 食べる no deja 食, 食べ y 食べる). Segunda pestaña
+  «Añadidas a Anki»: la tabla `added` (clave `expresión\u0000lectura`), con mazo y fecha.
+- `src/copia.ts` — copia de seguridad: historial, añadidas, ajustes (SIN el token) y preferencias de cada
+  diccionario por título (no los términos: se reimportan del .zip). Restaurar MEZCLA, no borra. Exportar va
+  por `navigator.share` con un File (en iOS, «Guardar en Archivos») y si no, descarga. Automática cada 24 h al
+  abrir o volver a primer plano, solo en modo servidor (`PUT /copia`, el servidor guarda las 30 últimas en
+  `data/copias`): una web no puede escribir archivos sola.
 - `src/settings.ts` — mazos, último mazo, tipo de nota, perfil, etiquetas, modo (`ankimobile`|`server`),
   URL y token del servidor (localStorage, PWA propia).
-- `src/server.ts` — cliente del servidor: health, decks, notetype/ensure, notes, sync, audio. Los errores de la API se
+- `src/server.ts` — cliente del servidor: health, decks, notetype/ensure, notes, sync, audio, copia. Los errores de la API se
   enseñan tal cual en la UI.
 - Escuchar antes de añadir (▶ en cada ficha, solo en modo servidor): `POST /audio` devuelve el MISMO audio que irá a la
   tarjeta (pack → fuentes HTTP → VOICEVOX, con su caché). `src/reproductor.ts`: un solo <audio> que se desbloquea
@@ -222,7 +228,7 @@ Conjugaciones: 食べた, 食べさせられた, たべている, 読まなか�
 diccionario con la razón debajo del término. `npx tsc -p .` y `npm test` deben salir limpios.
 Para verificar UI móvil: Playwright a 390×844.
 
-Servidor: `cd server && ./venv/bin/python -m pytest tests -q` (51 casos, colección temporal). Para probarlo
+Servidor: `cd server && ./venv/bin/python -m pytest tests -q` (55 casos, colección temporal). Para probarlo
 junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173` y poner esa URL en Ajustes.
 
 ## Gotchas
@@ -258,4 +264,3 @@ junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173
    de Pages en `KOTODEX_CORS_ORIGINS` (la PWA ya se despliega sola con cada push a main). Para el audio, decidir fuente: el addon Forvo local
    (exige Anki de escritorio abierto) o clave de la API de Forvo.
 2. Imágenes de structured-content (guardar blobs).
-3. Historial / lista de palabras añadidas.

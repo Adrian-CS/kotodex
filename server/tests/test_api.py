@@ -40,6 +40,19 @@ def test_cors_deja_pasar_a_la_pwa(client):
     assert r.headers["access-control-allow-origin"] == "https://kotodex.pages.dev"
 
 
+def test_cors_deja_subir_la_copia(client):
+    # PUT /copia lleva preflight; sin PUT en allow_methods el navegador nunca manda la copia.
+    r = client.options(
+        "/copia",
+        headers={
+            "Origin": "https://kotodex.pages.dev",
+            "Access-Control-Request-Method": "PUT",
+            "Access-Control-Request-Headers": "authorization,content-type",
+        },
+    )
+    assert r.status_code == 200
+
+
 def test_nota_sin_tipo_de_nota_avisa(client):
     r = client.post("/notes", json={"fields": WORD, "deck": "日本語"})
     assert r.status_code == 409
@@ -186,4 +199,30 @@ def test_audio_que_no_existe_da_404(client):
 def test_audio_necesita_token(client):
     r = client.post("/audio", json={"expression": "食べる"}, headers={"Authorization": ""})
     assert r.status_code == 401
+
+
+def test_copia_se_guarda_y_se_recupera(client):
+    copia = {"app": "kotodex", "version": 1, "historial": [{"key": "食べる\u0000たべる"}]}
+    r = client.put("/copia", json=copia)
+    assert r.status_code == 200, r.text
+    assert r.json()["guardada"].startswith("kotodex-")
+    assert client.get("/copia").json() == copia
+
+
+def test_copia_que_no_es_de_kotodex_se_rechaza(client):
+    r = client.put("/copia", json={"otra": "cosa"}, headers={"Accept-Language": "es"})
+    assert r.status_code == 400
+    assert "kotodex" in r.json()["detail"]
+
+
+def test_copias_se_quedan_las_ultimas(tmp_path):
+    from app import copias
+
+    ruta = tmp_path / "collection.anki2"
+    for i in range(copias.MAX_COPIAS + 5):
+        (copias.directorio(ruta)).mkdir(parents=True, exist_ok=True)
+        (copias.directorio(ruta) / f"kotodex-20260101-0000{i:02d}.json").write_text("{}", encoding="utf-8")
+    copias.guardar(ruta, {"app": "kotodex", "n": "nueva"})
+    assert len(list(copias.directorio(ruta).glob("kotodex-*.json"))) == copias.MAX_COPIAS
+    assert copias.ultima(ruta) == {"app": "kotodex", "n": "nueva"}
 

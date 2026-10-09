@@ -16,6 +16,8 @@ la app y no depende de la longitud de la URL.
 | POST | `/notes` | Crea una nota. Busca el audio si hay pack configurado. |
 | POST | `/notes/check` | Cuántas notas hay ya con cada palabra, en cualquier tipo de nota. |
 | POST | `/audio` | El audio de una palabra (`expression`, `reading`, `pitchnum`), para escucharlo antes de añadirla. Misma resolución y caché que `/notes`; 404 si no hay. |
+| PUT | `/copia` | Guarda una copia de seguridad de la PWA (JSON, máx. 5 MB) en `data/copias/`; se conservan las 30 últimas. |
+| GET | `/copia` | La copia más reciente; 404 si no hay ninguna. |
 | POST | `/sync` | Sincroniza con AnkiWeb. |
 
 Todos menos `/health` piden `Authorization: Bearer $KOTODEX_TOKEN`.

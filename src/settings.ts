@@ -14,6 +14,8 @@ export interface Settings {
   serverToken: string;
   /** "auto" = el del sistema. */
   idioma: Idioma | "auto";
+  /** Copia de seguridad diaria al servidor (ver copia.ts). Solo tiene efecto en modo servidor. */
+  copiaAutomatica: boolean;
 }
 
 const KEY = "jp-dict-settings";
@@ -27,6 +29,7 @@ const DEFAULTS: Settings = {
   serverUrl: "",
   serverToken: "",
   idioma: "auto",
+  copiaAutomatica: true,
 };
 
 export function loadSettings(): Settings {

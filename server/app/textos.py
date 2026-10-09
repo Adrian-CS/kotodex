@@ -54,6 +54,21 @@ MENSAJES: dict[str, dict[str, str]] = {
         "en": "Expression is empty.",
         "ja": "Expression が空です。",
     },
+    "copia_grande": {
+        "es": "La copia de seguridad pasa de 5 MB: algo no cuadra, no se ha guardado.",
+        "en": "The backup is over 5 MB: something is off, it was not saved.",
+        "ja": "バックアップが 5 MB を超えています。何かがおかしいため保存しませんでした。",
+    },
+    "copia_invalida": {
+        "es": "No es una copia de seguridad válida de kotodex: {error}",
+        "en": "Not a valid kotodex backup: {error}",
+        "ja": "kotodex の有効なバックアップではありません: {error}",
+    },
+    "sin_copias": {
+        "es": "El servidor todavía no tiene ninguna copia de seguridad.",
+        "en": "The server has no backup yet.",
+        "ja": "サーバーにはまだバックアップがありません。",
+    },
     "sin_audio": {
         "es": "No hay audio para «{palabra}» en ninguna fuente configurada.",
         "en": "No audio for “{palabra}” in any configured source.",

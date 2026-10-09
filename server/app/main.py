@@ -7,11 +7,14 @@ Endpoints:
   POST /notetype/ensure   crea o actualiza el tipo de nota «JP Dict»
   POST /notes             crea una nota (resuelve el audio si hay pack)
   POST /audio             el audio de una palabra, para escucharlo antes de añadirla
+  PUT  /copia             guarda una copia de seguridad de la PWA (historial, ajustes…)
+  GET  /copia             devuelve la última copia guardada
   POST /sync              sincroniza con AnkiWeb
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import mimetypes
 import secrets
@@ -24,6 +27,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from .anki_service import FIELDS, NOTETYPE_NAME, AnkiService, ServiceError
+from . import copias
 from .autosync import AutoSync
 from .config import Settings, load_settings
 from .textos import idioma_de, traducir
@@ -51,7 +55,7 @@ if settings.cors_origins:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),
-        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "Accept-Language"],
         max_age=86400,
     )
@@ -190,6 +194,28 @@ async def audio(body: AudioRequest) -> FileResponse:
     tipo = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
     # private: es audio para uso personal, que no lo guarde ninguna caché intermedia.
     return FileResponse(path, media_type=tipo, headers={"Cache-Control": "private, max-age=86400"})
+
+
+@app.put("/copia", dependencies=[Auth])
+async def guardar_copia(request: Request) -> dict:
+    cuerpo = await request.body()
+    if len(cuerpo) > copias.MAX_BYTES:
+        raise ServiceError("copia_grande", 413)
+    try:
+        copia = json.loads(cuerpo)
+    except ValueError as e:
+        raise ServiceError("copia_invalida", error=str(e)) from e
+    if not isinstance(copia, dict) or copia.get("app") != "kotodex":
+        raise ServiceError("copia_invalida", error="no es una copia de kotodex")
+    return await run_in_threadpool(copias.guardar, settings.collection_path, copia)
+
+
+@app.get("/copia", dependencies=[Auth])
+async def ultima_copia() -> dict:
+    copia = await run_in_threadpool(copias.ultima, settings.collection_path)
+    if copia is None:
+        raise ServiceError("sin_copias", 404)
+    return copia
 
 
 @app.post("/sync", dependencies=[Auth])

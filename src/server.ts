@@ -49,14 +49,18 @@ export class ServerError extends Error {
 const baseUrl = (s: Settings) => s.serverUrl.trim().replace(/\/+$/, "");
 
 /** La petición con token e idioma; lanza ServerError con el texto de la API si no va bien. */
-async function pedir(s: Settings, path: string, body?: unknown): Promise<Response> {
+function pedir(s: Settings, path: string, body?: unknown): Promise<Response> {
+  return pedirConMetodo(s, body === undefined ? "GET" : "POST", path, body);
+}
+
+async function pedirConMetodo(s: Settings, method: string, path: string, body?: unknown): Promise<Response> {
   const url = baseUrl(s);
   if (!url) throw new ServerError("Falta la dirección del servidor en Ajustes.", 0);
 
   let response: Response;
   try {
     response = await fetch(url + path, {
-      method: body === undefined ? "GET" : "POST",
+      method,
       headers: {
         Authorization: `Bearer ${s.serverToken}`,
         // Para que los errores del servidor lleguen en el idioma de la interfaz.
@@ -88,6 +92,13 @@ async function pedir(s: Settings, path: string, body?: unknown): Promise<Respons
 async function call<T>(s: Settings, path: string, body?: unknown): Promise<T> {
   return (await pedir(s, path, body)).json() as Promise<T>;
 }
+
+/** Copia de seguridad de la PWA (ver copia.ts). PUT porque sustituye a «la última». */
+export async function guardarCopia(s: Settings, copia: unknown): Promise<void> {
+  await pedirConMetodo(s, "PUT", "/copia", copia);
+}
+
+export const ultimaCopia = (s: Settings) => call<unknown>(s, "/copia");
 
 /** Audios ya pedidos en esta sesión, por palabra: volver a darle a ▶ no vuelve a la red. */
 const audios = new Map<string, Promise<string>>();

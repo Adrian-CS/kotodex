@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { AnkiMode, Settings } from "../settings";
 import { IDIOMAS, type Idioma, type T } from "../i18n";
 import { ensureNotetype, health, listDecks, sync } from "../server";
+import { copiarAlServidor, exportarArchivo, leerArchivo, restaurarCopia, restaurarDelServidor, ultimaCopiaAutomatica, type Restaurado } from "../copia";
 
 interface Props { settings: Settings; setSettings: (s: Settings) => void; t: T }
 
@@ -11,6 +12,8 @@ export function SettingsView({ settings, setSettings, t }: Props) {
   const [newDeck, setNewDeck] = useState("");
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [busy, setBusy] = useState(false);
+  // Dónde se enseña el resultado: junto al botón que se pulsó, no siempre en la sección del servidor.
+  const [zona, setZona] = useState<"servidor" | "copia">("servidor");
   const update = <K extends keyof Settings>(k: K, v: Settings[K]) => setSettings({ ...settings, [k]: v });
 
   function addDeck() {
@@ -24,7 +27,8 @@ export function SettingsView({ settings, setSettings, t }: Props) {
    * Lanza una acción contra el servidor y enseña el resultado, sea bueno o malo.
    * `enCurso` se enseña mientras tanto: sin eso, sincronizar parecía no hacer nada.
    */
-  async function run(action: () => Promise<string>, enCurso: string) {
+  async function run(action: () => Promise<string>, enCurso: string, donde: "servidor" | "copia" = "servidor") {
+    setZona(donde);
     setBusy(true);
     setFeedback({ ok: true, text: enCurso });
     try {
@@ -69,6 +73,25 @@ export function SettingsView({ settings, setSettings, t }: Props) {
     // La media sigue subiendo de fondo: se avisa para que no parezca que falta algo.
     return t("settings.synced", { state: r.required }) + (r.server_message ? ` ${r.server_message}` : "");
   }, t("settings.syncing"));
+
+  // ---- copia de seguridad ----
+  const [ultimaCopia, setUltimaCopia] = useState(ultimaCopiaAutomatica());
+  const servidorListo = settings.mode === "server" && !!settings.serverUrl && !!settings.serverToken;
+  const resumen = (r: Restaurado) => t("backup.restored", { history: r.historial, added: r.añadidas, dicts: r.diccionarios });
+
+  const exportar = () => run(async () => { await exportarArchivo(settings); return t("backup.exported"); }, t("backup.exporting"), "copia");
+  const importar = (file: File | undefined) => file && run(async () => {
+    if (!confirm(t("backup.confirmRestore"))) return t("backup.cancelled");
+    return resumen(await restaurarCopia(await leerArchivo(file), settings, setSettings));
+  }, t("backup.restoring"), "copia");
+  const copiarAhora = () => run(async () => {
+    setUltimaCopia(await copiarAlServidor(settings));
+    return t("backup.savedToServer");
+  }, t("backup.saving"), "copia");
+  const restaurarServidor = () => run(async () => {
+    if (!confirm(t("backup.confirmRestore"))) return t("backup.cancelled");
+    return resumen(await restaurarDelServidor(settings, setSettings));
+  }, t("backup.restoring"), "copia");
 
   return (
     <div className="page">
@@ -148,12 +171,45 @@ export function SettingsView({ settings, setSettings, t }: Props) {
               <button onClick={crearTipoDeNota} disabled={busy}>{t("settings.createNoteType")}</button>
               <button onClick={sincronizar} disabled={busy}>{t("settings.sync")}</button>
             </div>
-            {feedback && <p className={feedback.ok ? "hint" : "error"}>{feedback.text}</p>}
+            {feedback && zona === "servidor" && <p className={feedback.ok ? "hint" : "error"}>{feedback.text}</p>}
             <p className="hint">
               {t("settings.serverHint")}
             </p>
           </>
         )}
+      </section>
+
+      <section className="settings-group">
+        <h2>{t("backup.title")}</h2>
+        <p className="hint">{t("backup.hint")}</p>
+        <div className="settings-actions">
+          <button onClick={exportar} disabled={busy}>{t("backup.export")}</button>
+          <label className={`file-button boton${busy ? " disabled" : ""}`}>
+            {t("backup.import")}
+            <input type="file" accept=".json,application/json" hidden disabled={busy}
+              onChange={e => { importar(e.target.files?.[0]); e.target.value = ""; }} />
+          </label>
+        </div>
+        {servidorListo ? (
+          <>
+            <label className="toggle">
+              <input type="checkbox" checked={settings.copiaAutomatica} onChange={e => update("copiaAutomatica", e.target.checked)} />
+              {t("backup.auto")}
+            </label>
+            <p className="hint">
+              {ultimaCopia
+                ? t("backup.last", { when: new Date(ultimaCopia).toLocaleString() })
+                : t("backup.never")}
+            </p>
+            <div className="settings-actions">
+              <button onClick={copiarAhora} disabled={busy}>{t("backup.saveNow")}</button>
+              <button onClick={restaurarServidor} disabled={busy}>{t("backup.restoreServer")}</button>
+            </div>
+          </>
+        ) : (
+          <p className="hint">{t("backup.needsServer")}</p>
+        )}
+        {feedback && zona === "copia" && <p className={feedback.ok ? "hint" : "error"}>{feedback.text}</p>}
       </section>
 
       <section className="settings-group">

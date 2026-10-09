@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { SearchView } from "./components/SearchView";
 import { HistoryView } from "./components/HistoryView";
 import { DictionariesView } from "./components/DictionariesView";
@@ -6,6 +6,7 @@ import { SettingsView } from "./components/SettingsView";
 import { SyncBanner } from "./components/SyncBanner";
 import { loadSettings, saveSettings, type Settings } from "./settings";
 import { crearT, idiomaDelSistema, localeDe } from "./i18n";
+import { copiaAutomaticaSiToca } from "./copia";
 
 type Tab = "search" | "history" | "dicts" | "settings";
 
@@ -26,6 +27,15 @@ export default function App() {
 
   const idioma = settings.idioma === "auto" ? idiomaDelSistema() : settings.idioma;
   const t = useMemo(() => crearT(idioma), [idioma]);
+
+  // Copia de seguridad diaria al servidor: al abrir la app y al volver a ella (en iOS una PWA casi
+  // nunca se cierra del todo, así que solo al arrancar se quedaría días sin hacerse).
+  useEffect(() => {
+    copiaAutomaticaSiToca(settings);
+    const alVolver = () => { if (document.visibilityState === "visible") copiaAutomaticaSiToca(settings); };
+    document.addEventListener("visibilitychange", alVolver);
+    return () => document.removeEventListener("visibilitychange", alVolver);
+  }, [settings]);
   const locale = localeDe(idioma);
 
   const buscarDesdeHistorial = (q: string) => { setQuery(q); setTab("search"); };
