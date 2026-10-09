@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Role } from "../db";
-import { deleteDictionary, importDictionary, type ImportProgress } from "../importer";
+import { deleteDictionary } from "../importer";
+import { importar, porcentaje, useImportacion } from "../importaciones";
 import type { T } from "../i18n";
 
 const ROLES: { value: Role; clave: "role.ja" }[] = [
@@ -27,7 +28,7 @@ export function DictionariesView({ t, locale }: Props) {
     },
     [],
   );
-  const [progress, setProgress] = useState<ImportProgress | null>(null);
+  const { progreso: progress, pendientes, errores } = useImportacion();
   const [error, setError] = useState<string | null>(null);
   const [usage, setUsage] = useState<{ usage?: number; quota?: number }>({});
   const [borrando, setBorrando] = useState<string | null>(null);
@@ -36,17 +37,12 @@ export function DictionariesView({ t, locale }: Props) {
     navigator.storage?.estimate?.().then(setUsage).catch(() => {});
   }, [dicts]);
 
-  async function onFiles(files: FileList | null) {
+  // La importación va en un worker y su estado es global (importaciones.ts): se puede cambiar de
+  // pestaña y seguir buscando mientras tanto.
+  function onFiles(files: FileList | null) {
     if (!files?.length) return;
     setError(null);
-    for (const file of Array.from(files)) {
-      try {
-        await importDictionary(file, setProgress);
-      } catch (e: any) {
-        setError(e?.message ?? String(e));
-      }
-    }
-    setProgress(null);
+    importar(Array.from(files));
   }
 
   async function onDelete(id: number, title: string) {
@@ -93,10 +89,14 @@ export function DictionariesView({ t, locale }: Props) {
         <div className="progress" role="status">
           <div>{progress.stage}</div>
           <progress value={progress.done} max={progress.total} />
+          <div className="hint">
+            {porcentaje(progress)} %{pendientes > 0 && ` · ${t("dicts.queued", { count: pendientes })}`} · {t("dicts.background")}
+          </div>
         </div>
       )}
       {borrando && <p className="hint" role="status">{borrando}</p>}
       {error && <p className="error">{error}</p>}
+      {errores.map((e, i) => <p key={i} className="error">{e}</p>)}
 
       <ul className="dict-list">
         {dicts?.map((d, i) => (

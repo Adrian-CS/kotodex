@@ -57,8 +57,13 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   Roles: `ja|es|en|pitch|other` (other = ignorado). El pitch se lee de CUALQUIER diccionario activo que lo
   traiga, no solo de los de rol "pitch": hay diccionarios con términos y pitch a la vez y el rol es uno solo.
   `Term.rules` (clases de palabra) no está indexado y es opcional: falta en lo importado antes del deinflector.
-- `src/importer.ts` — unzip (solo .json), term_bank / term_meta_bank en orden numérico, `bulkAdd` por archivo,
-  adivina el rol por título, rollback si falla, pide `navigator.storage.persist()`.
+- `src/importer.ts` — unzip (solo .json), term_bank / term_meta_bank / kanji_bank en orden numérico, `bulkAdd` por
+  archivo, adivina el rol por título, rollback si falla. Corre en un **Web Worker** (`importer.worker.ts`, con
+  `unzipSync`: el unzip asíncrono de fflate abre sus propios workers y no todos los Safari los admiten anidados).
+  La cola y el progreso son globales (`src/importaciones.ts`, `useImportacion()`): se ve desde la búsqueda y se
+  puede seguir usando la app. Con JMdict real: mismo tiempo que en el hilo principal (~9 min en Chromium, manda
+  IndexedDB), pero la peor congelación pasa de 3,35 s a 0,13 s. `navigator.storage.persist()` se pide al acabar,
+  desde la ventana.
 - `src/structured.ts` — structured-content → HTML con **lista blanca** de etiquetas/estilos; `<a>`→span; imágenes omitidas.
   Escapar SIEMPRE: este HTML acaba en la tarjeta y en `dangerouslySetInnerHTML`.
 - `src/search.ts` — exacta por expresión/lectura (variantes hira/kata) → si no hay, **deinflexión** → si no, prefijo
@@ -216,7 +221,8 @@ junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173
   Safari el salto avanza fila a fila. Con claves dispersas (かいせき + candidatos en hangul) tardaba 6,7 s en el
   iPhone y 10 ms en Chromium, así que en el ordenador no se ve. Usar `porClaves()` de search.ts: una consulta
   `equals` por clave, en paralelo.
-- JMdict completo ≈ 200k términos: la importación va en el hilo principal → si se nota lenta, moverla a Web Worker.
+- JMdict completo ≈ 530k términos (jmdict-yomitan actual). Si se cierra la app a mitad de importación, el
+  diccionario queda a medias: borrarlo y reimportar.
 - AnkiMobile necesita que el tipo de nota y el mazo existan con el nombre exacto.
 - Longitud de URL: las defs largas inflan la URL del scheme; el servidor lo resuelve.
 - VOICEVOX: tocar `accent` en la consulta NO cambia el audio. `/synthesis` usa el `pitch` ya calculado
@@ -241,5 +247,5 @@ junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173
 1. **Terminar el despliegue**: `tailscale serve` en el portátil, app de Tailscale en el iPhone, y poner el origen
    de Pages en `KOTODEX_CORS_ORIGINS` (la PWA ya se despliega sola con cada push a main). Para el audio, decidir fuente: el addon Forvo local
    (exige Anki de escritorio abierto) o clave de la API de Forvo.
-2. Importación en Web Worker con progreso; imágenes de structured-content (guardar blobs).
+2. Imágenes de structured-content (guardar blobs).
 3. Historial / lista de palabras añadidas.

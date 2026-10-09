@@ -153,6 +153,9 @@ button.text { border: 0; background: none; padding: 0 8px; height: 36px; }
 .hint { color: var(--muted); font-size: 14px; }
 .hint code { font-size: 13px; }
 .progress { margin: 16px 0; font-size: 14px; }
+/* Aviso de importación en la búsqueda: discreto, se puede seguir buscando debajo. */
+.importando { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+.importando progress { display: block; width: 100%; height: 4px; margin-top: 4px; accent-color: var(--accent); }
 .progress progress { width: 100%; accent-color: var(--accent); }
 
 .dict-list, .deck-list { list-style: none; padding: 0; margin: 16px 0; }

@@ -11,6 +11,7 @@ import { EntryCard } from "./EntryCard";
 import { KanjiSheet } from "./KanjiSheet";
 import { RadicalPicker } from "./RadicalPicker";
 import { DibujoKanji } from "./DibujoKanji";
+import { porcentaje, useImportacion } from "../importaciones";
 import { hayDiccionarioKanji } from "../kanji";
 
 /** Diccionarios que han aportado definiciones, en el orden en que salen (o sea, por prioridad). */
@@ -71,6 +72,8 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
   const [radicalesAbierto, setRadicalesAbierto] = useState(false);
   const [dibujoAbierto, setDibujoAbierto] = useState(false);
   const [errorPegar, setErrorPegar] = useState(false);
+  // Si hay una importación en marcha (en su worker), se avisa aquí: se puede seguir buscando.
+  const { progreso: importando } = useImportacion();
 
   /**
    * Lee el portapapeles y lo busca. En iOS, readText() enseña la burbuja «Pegar» del sistema y
@@ -172,7 +175,14 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
         {buscando && <div className="cargando" role="status" aria-label={t("search.loading")} />}
       </div>
 
-      {dictCount === 0 && (
+      {importando && (
+        <p className="importando" role="status">
+          {importando.stage} · {porcentaje(importando)} %
+          <progress value={importando.done} max={importando.total} />
+        </p>
+      )}
+
+      {dictCount === 0 && !importando && (
         <div className="empty">
           <p>{t("search.noDicts")}</p>
           <button className="primary" onClick={onOpenDicts}>{t("search.import")}</button>

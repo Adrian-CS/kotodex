@@ -1,12 +1,19 @@
-import { unzip } from "fflate";
+import { unzip, unzipSync } from "fflate";
 import { db, type Dictionary, type Kanji, type Role, type Term, type TermMeta } from "./db";
 import { indexWords } from "./glosses";
 
 export interface ImportProgress { stage: string; done: number; total: number }
 
-const unzipJson = (buf: Uint8Array) =>
-  new Promise<Record<string, Uint8Array>>((resolve, reject) =>
-    unzip(buf, { filter: f => f.name.endsWith(".json") }, (err, data) => (err ? reject(err) : resolve(data))));
+const soloJson = { filter: (f: { name: string }) => f.name.endsWith(".json") };
+
+/**
+ * En el worker se descomprime en síncrono: ya se está fuera del hilo principal, y la versión
+ * asíncrona de fflate abre sus propios workers, que dentro de otro worker no todos los Safari admiten.
+ */
+const unzipJson = (buf: Uint8Array, sincrono: boolean) => sincrono
+  ? Promise.resolve(unzipSync(buf, soloJson))
+  : new Promise<Record<string, Uint8Array>>((resolve, reject) =>
+    unzip(buf, soloJson, (err, data) => (err ? reject(err) : resolve(data))));
 
 const bankNumber = (name: string) => Number(name.match(/(\d+)\.json$/)?.[1] ?? 0);
 
@@ -18,10 +25,18 @@ function guessRole(title: string, hasTerms: boolean, pitchRows: number, kanjiRow
   return "ja";
 }
 
-/** Importa un .zip en formato Yomitan (term_bank, term_meta_bank y/o kanji_bank). */
-export async function importDictionary(file: File, onProgress: (p: ImportProgress) => void): Promise<Dictionary> {
+/**
+ * Importa un .zip en formato Yomitan (term_bank, term_meta_bank y/o kanji_bank) en el hilo donde
+ * se llame. La app lo llama desde `importer.worker.ts` (ver importaciones.ts); aquí no hay nada que
+ * dependa de la ventana, para que funcione igual en un worker.
+ */
+export async function importarEnEsteHilo(
+  file: File,
+  onProgress: (p: ImportProgress) => void,
+  sincrono = false,
+): Promise<Dictionary> {
   onProgress({ stage: "Descomprimiendo", done: 0, total: 1 });
-  const files = await unzipJson(new Uint8Array(await file.arrayBuffer()));
+  const files = await unzipJson(new Uint8Array(await file.arrayBuffer()), sincrono);
   const decoder = new TextDecoder();
 
   if (!files["index.json"]) throw new Error(`${file.name} no tiene index.json, así que no es un diccionario de Yomitan.`);
@@ -113,7 +128,6 @@ export async function importDictionary(file: File, onProgress: (p: ImportProgres
   await db.dictionaries.update(dictId, {
     terms: termCount, metas: metaCount, pitches: pitchRows, kanji: kanjiCount, frecuencias: freqRows, frequencyMode, role,
   });
-  navigator.storage?.persist?.().catch(() => {});
   onProgress({ stage: "Listo", done: total, total });
   return (await db.dictionaries.get(dictId))!;
 }
