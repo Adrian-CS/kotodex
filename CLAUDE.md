@@ -132,6 +132,12 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   (CC BY 4.0), con la atribución al pie del selector. Se carga con `import()` (72 KB gzip). La cuadrícula tiene su
   propio scroll: si se desplazara toda la hoja, los kanji encontrados se perderían de vista. Tocar un kanji lo AÑADE
   a la consulta (se puede componer 懐石 en dos pasos).
+- `src/reconocerKanji.ts` + `components/DibujoKanji.tsx` — buscar dibujando (botón ✎). Reconocedor de KanjiCanvas (MIT,
+  copiado en `src/vendor/kanji-canvas.js` con su aviso; su licencia pide enlace al repo, que va al pie de la hoja).
+  Solo se usan sus funciones de reconocimiento, con trazos propios. Patrones: 2.213 kanji (sin kana) en
+  `public/kanjicanvas/patrones.json`, redondeados a enteros (1,5 MB, 510 KB gzip), descargados al abrir y guardados con la
+  Cache API (`kanjicanvas-v1`). Pide el nº de trazos aproximadamente correcto (−2…+1). El reconocedor de Google NO se
+  usa: es una API interna sin licencia para terceros. El lienzo nace con 300×150: comprobar ancho Y alto al dimensionarlo.
 - `src/history.ts` + `components/HistoryView.tsx` — historial indexado por la palabra a la que se llega, no por
   lo tecleado: buscar 食べた y 食べる deja una entrada. Si la consulta nueva empieza por la anterior y han pasado
   menos de 2 min, sustituye a la anterior (escribir 食べる no deja 食, 食べ y 食べる).

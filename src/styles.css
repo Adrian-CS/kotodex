@@ -275,3 +275,11 @@ span.hoja-parte { border-style: dashed; }
 .radical.elegido { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .radical:disabled { opacity: 0.25; cursor: default; }
 .radicales-fuente { margin: 12px 0 0; color: var(--muted); font-size: 11px; }
+
+/* Buscar dibujando. touch-action: none para que el dedo dibuje en vez de desplazar la hoja. */
+.hoja-dibujo .hoja-contenido { display: flex; flex-direction: column; align-items: center; padding-top: 0; }
+.hoja-dibujo .radicales-cabecera { align-self: stretch; }
+.dibujo-candidatos { align-self: stretch; display: flex; flex-wrap: wrap; gap: 4px; min-height: 48px; align-items: center; margin-bottom: 8px; }
+.dibujo-lienzo { border: 1px solid var(--rule); border-radius: 12px; background: var(--paper); touch-action: none; cursor: crosshair; }
+.dibujo-acciones { display: flex; gap: 8px; margin-top: 12px; }
+.radicales-fuente a { color: inherit; }

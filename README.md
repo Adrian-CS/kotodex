@@ -72,6 +72,7 @@ Los datos que la app usa tienen sus propias licencias y no cambian con la del c�
 | Niveles JLPT actuales | Listas de Jonathan Waller, vía [kanji-data](https://github.com/davidluzgouveia/kanji-data) | CC BY / MIT |
 | Nombres de los radicales | [Kanji alive](https://github.com/kanjialive/kanji-data-media) | CC BY 4.0 |
 | Búsqueda por radicales | [@johnmorrisdotca/bushu](https://www.npmjs.com/package/@johnmorrisdotca/bushu) | MIT (código) |
+| Reconocimiento de kanji dibujados | [KanjiCanvas](https://github.com/asdfjkl/kanjicanvas) (código en `src/vendor/`, patrones en `public/kanjicanvas/`) | MIT |
 
 Los diccionarios, el pitch y el audio los importa cada usuario y **no** forman parte del repositorio: cada uno
 sigue la licencia de quien lo publica, y los que tienen copyright son solo para uso personal.
