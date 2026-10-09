@@ -12,6 +12,7 @@ import { KanjiSheet } from "./KanjiSheet";
 import { RadicalPicker } from "./RadicalPicker";
 import { DibujoKanji } from "./DibujoKanji";
 import { porcentaje, useImportacion } from "../importaciones";
+import { esFrase, palabraEn, soloFrase, trozo } from "../frase";
 import { hayDiccionarioKanji } from "../kanji";
 
 /** Diccionarios que han aportado definiciones, en el orden en que salen (o sea, por prioridad). */
@@ -25,8 +26,8 @@ function diccionariosDe(entradas: Entry[]): string[] {
   return salida;
 }
 
-/** Lo que se busca como mucho al pegar: más largo ya es una frase, no una palabra. */
-const MAX_PEGADO = 40;
+/** Lo que se pega como mucho: una frase larga cabe; un capítulo entero, no. */
+const MAX_PEGADO = 300;
 
 /** A partir de cuánto se enseña el desglose de tiempos debajo de la barra. */
 const UMBRAL_LENTA_MS = 1500;
@@ -103,10 +104,30 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
   );
 
   // Una consulta nueva empieza siempre sin filtro.
-  useEffect(() => { setFiltro(null); }, [query]);
+  // Frase: la palabra tocada (posiciones en caracteres). Se busca ese trozo en vez de la frase entera.
+  const [foco, setFoco] = useState<{ inicio: number; largo: number } | null>(null);
+  const [sinPalabra, setSinPalabra] = useState(false);
+  useEffect(() => { setFoco(null); setSinPalabra(false); }, [query]);
+  const consulta = foco ? trozo(query, foco.inicio, foco.largo) : query;
+  // Una frase larga o con puntuación no se busca entera: no daría nada útil. Se espera al toque.
+  const esperandoToque = !foco && soloFrase(query);
+
+  async function tocarFrase(e: React.MouseEvent<HTMLElement>) {
+    const i = Number((e.target as HTMLElement).dataset.i);
+    if (!Number.isInteger(i)) return;
+    const largo = await palabraEn(query, i);
+    setSinPalabra(largo === 0);
+    if (largo) {
+      setFoco({ inicio: i, largo });
+      // Si se tocó estando abajo en una ficha larga, la nueva empieza arriba: se vuelve a ella.
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
+  useEffect(() => { setFiltro(null); }, [consulta]);
 
   useEffect(() => {
-    const q = query.trim();
+    const q = esperandoToque ? "" : consulta.trim();
     if (!q) { setResults(null); setChips([]); setBuscando(false); return; }
     const id = ++requestId.current;
     setBuscando(true);
@@ -135,7 +156,7 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
         });
     }, espera);
     return () => clearTimeout(timer);
-  }, [query, filtro, dictHuella]);
+  }, [consulta, esperandoToque, filtro, dictHuella]);
 
   // Comprobar qué palabras ya están en la colección. Va aparte de la búsqueda porque sale a la
   // red y tarda (~60 ms por palabra): los resultados se enseñan ya y las marcas llegan después.
@@ -204,6 +225,24 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
 
       {errorPegar && !query && <p className="hint aviso-pegar" role="status">{t("search.pasteFailed")}</p>}
 
+      {esFrase(query) && (
+        <div className="frase-bloque">
+          {/* Un span por carácter: tocar uno busca la palabra que EMPIEZA ahí, como en Yomitan. */}
+          <p className="frase" lang="ja" onClick={tocarFrase} aria-label={t("phrase.aria")}>
+            {[...query].map((c, i) => (
+              <span
+                key={i}
+                data-i={i}
+                className={foco && i >= foco.inicio && i < foco.inicio + foco.largo ? "en-foco" : undefined}
+              >
+                {c}
+              </span>
+            ))}
+          </p>
+          <p className="hint">{sinPalabra ? t("phrase.none") : !foco ? t("phrase.hint") : null}</p>
+        </div>
+      )}
+
       {error && <p className="error">{t("search.failed", { error })}</p>}
 
       {lenta && !buscando && (
@@ -216,7 +255,7 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
       )}
 
       {results && results.length === 0 && dictCount !== 0 && !buscando && (
-        <p className="empty">{t("search.noResults", { query: query.trim() })}</p>
+        <p className="empty">{t("search.noResults", { query: consulta.trim() })}</p>
       )}
 
       {chips.length > 1 && (

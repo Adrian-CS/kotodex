@@ -80,6 +80,12 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   es de la ✕ del sistema): `navigator.clipboard.readText()` tras el toque; en iOS sale
   la burbuja «Pegar» del sistema y hay que tocarla (ninguna web lee el portapapeles sin confirmación). Se busca la
   primera línea con texto, hasta 40 caracteres. Sin permiso, aviso con la alternativa de pegar a mano.
+- `src/frase.ts` — leer una frase (como Yomitan): con texto japonés de 5+ caracteres, SearchView enseña la frase
+  tocable (un span por carácter, fija bajo la barra). Tocar busca la palabra que EMPIEZA ahí: `palabraEn()` prueba a la
+  vez todos los cortes de hasta 10 caracteres y sus desconjugaciones (máx. 120 formas, una consulta `equals` por forma:
+  kana por `reading`, lo demás por `expression`) y gana el corte más largo. Luego search() arma la ficha con ese trozo.
+  NO se segmenta la frase al pegarla (en el iPhone serían segundos): solo se trabaja al tocar (1–9 ms en Chromium con
+  JMdict real, ≤50 ms con la CPU ×6). Frase larga o con puntuación (`soloFrase`): no se busca entera hasta tocar.
 - Búsqueda por definición, tres cosas que costó afinar y conviene no deshacer:
   relevancia **por palabras** con el mismo tokenizador del índice (así «to eat» encuentra los
   sentidos escritos «eat», y los diccionarios que pegan la cabecera al sentido —«먹다 eat» en

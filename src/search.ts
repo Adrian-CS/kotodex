@@ -27,13 +27,13 @@ export interface Entry {
 }
 
 /** Solo kana (y ー): lo que se puede buscar por prefijo de lectura. */
-const esKana = (s: string) => /^[ぁ-ゖァ-ヺー]+$/.test(s);
+export const esKana = (s: string) => /^[ぁ-ゖァ-ヺー]+$/.test(s);
 
 /** Filas por prefijo de lectura. Menos que por expresión: las de JMdict pesan, y en Safari se nota. */
 const MAX_PREFIJO_LECTURA = 100;
 
-const toHiragana = (s: string) => s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
-const toKatakana = (s: string) => s.replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
+export const toHiragana = (s: string) => s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+export const toKatakana = (s: string) => s.replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
 
 /** Hangul: sílabas, jamo modernos y jamo de compatibilidad. */
 const esCoreano = (s: string) => /[가-힯ᄀ-ᇿ㄰-㆏]/.test(s);
@@ -61,7 +61,7 @@ const MAX_POR_DEFINICION = 4000;
  * junto a candidatos en hangul) recorría medio índice: 6,7 s en el iPhone para kaiseki. Una
  * consulta exacta por clave va directa al dato en cualquier navegador.
  */
-async function porClaves<T>(tabla: Table<T, number>, indice: string, claves: string[]): Promise<T[]> {
+export async function porClaves<T>(tabla: Table<T, number>, indice: string, claves: string[]): Promise<T[]> {
   const unicas = [...new Set(claves)];
   return (await Promise.all(unicas.map(c => tabla.where(indice).equals(c).toArray()))).flat();
 }

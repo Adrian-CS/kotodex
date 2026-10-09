@@ -300,3 +300,17 @@ span.hoja-parte { border-style: dashed; }
 .dibujo-lienzo { border: 1px solid var(--rule); border-radius: 12px; background: var(--paper); touch-action: none; cursor: crosshair; }
 .dibujo-acciones { display: flex; gap: 8px; margin-top: 12px; }
 .radicales-fuente a { color: inherit; }
+
+/* Frase tocable: grande y en mincho, como el término. La palabra tocada, subrayada en 藍 (es la acción). */
+/* Fija bajo la barra de búsqueda (72 px: 12 + 48 + 12): al bajar por una ficha larga, la frase sigue a
+   mano para tocar la palabra siguiente. Una frase muy larga hace scroll dentro, sin tapar la ficha. */
+.frase-bloque {
+  position: sticky; top: calc(env(safe-area-inset-top, 0px) + 72px); z-index: 1;
+  margin: 0 0 12px; padding-bottom: 6px; background: var(--paper); border-bottom: 1px solid var(--rule);
+}
+.frase-bloque .frase { max-height: 25vh; overflow: auto; overscroll-behavior: contain; }
+.frase { margin: 0; font-family: var(--mincho); font-size: 22px; line-height: 1.9; word-break: break-all; cursor: pointer; }
+.frase span { border-radius: 4px; }
+.frase span:active { background: var(--rule); }
+.frase .en-foco { color: var(--accent); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
+.frase-bloque .hint { margin: 2px 0 0; font-size: 13px; min-height: 1em; }
