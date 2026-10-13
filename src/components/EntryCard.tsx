@@ -8,6 +8,7 @@ import { addNote, audioUrl, ServerError, type WordCheck } from "../server";
 import { prepararAudio, reproducir } from "../reproductor";
 import { razonDeinflexion, type Idioma, type T } from "../i18n";
 import { esKanji } from "../kanji";
+import { palabraTocada } from "../tocarTexto";
 
 const IDIOMA_DE: Record<DefRole, string> = { ja: "ja", es: "es", en: "en" };
 /** A partir de aquí el ▶ enseña el desglose de tiempos. */
@@ -29,6 +30,8 @@ interface Props {
   added?: Added;
   /** Abre la ficha de un kanji. Sin ella (no hay diccionario de kanji) los kanji no se pueden tocar. */
   onKanji?: (kanji: string) => void;
+  /** Tocar una palabra dentro de una definición la abre en una hoja encima (PalabraSheet). */
+  onPalabra?: (palabra: string) => void;
   /** HTML de la frase de la que salió la palabra (ver fraseHtml), si se llegó tocando una frase. */
   frase?: string;
   t: T;
@@ -39,7 +42,7 @@ interface Props {
  * Memorizada: cada tecla vuelve a pintar SearchView, y sin esto las 20 fichas de la búsqueda
  * anterior se repintaban enteras con cada letra (en el iPhone se notaba al escribir en rōmaji).
  */
-export const EntryCard = memo(function EntryCard({ entry, settings, setSettings, inCollection, added, onKanji, frase, t, idioma }: Props) {
+export const EntryCard = memo(function EntryCard({ entry, settings, setSettings, inCollection, added, onKanji, onPalabra, frase, t, idioma }: Props) {
   const key = entryKey(entry.expression, entry.reading);
   const deck = settings.decks.includes(settings.lastDeck) ? settings.lastDeck : settings.decks[0] ?? "";
   const showReading = entry.reading !== entry.expression;
@@ -98,6 +101,13 @@ export const EntryCard = memo(function EntryCard({ entry, settings, setSettings,
     }
   }
 
+  async function tocarDefinicion(e: React.MouseEvent<HTMLElement>) {
+    // Si se está seleccionando texto (para copiarlo), no se busca nada.
+    if (!onPalabra || window.getSelection()?.isCollapsed === false) return;
+    const palabra = await palabraTocada(e.currentTarget, e.clientX, e.clientY);
+    if (palabra) onPalabra(palabra);
+  }
+
   const sending = status.kind === "sending";
   const label = sending ? t("entry.adding") : added ? t("entry.addAgain") : t("entry.add");
 
@@ -134,7 +144,7 @@ export const EntryCard = memo(function EntryCard({ entry, settings, setSettings,
           {entry.defs[role].map(b => (
             <div key={b.dictTitle} className="dict-block">
               {entry.defs[role].length > 1 && <div className="dict-name">{b.dictTitle}</div>}
-              <div className="def-html" dangerouslySetInnerHTML={{ __html: b.html }} />
+              <div className="def-html" onClick={onPalabra ? tocarDefinicion : undefined} dangerouslySetInnerHTML={{ __html: b.html }} />
             </div>
           ))}
         </section>

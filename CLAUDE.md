@@ -90,6 +90,12 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   Coreano también: el trozo no pasa del espacio, y gana el corte más largo que exista tal cual (학교에 → 학교, las
   partículas caen solas) o con el deinflector coreano (갔어요 → 가다), que se carga al primer toque en hangul. La frase
   coreana corta solo en espacios (`word-break: keep-all` con `:lang(ko)`).
+- `src/tocarTexto.ts` + `components/PalabraSheet.tsx` — tocar una palabra DENTRO de una definición (como Yomitan):
+  `caretRangeFromPoint` da el carácter (corrigiendo el caret, que cae entre caracteres), se recogen hasta 12
+  caracteres siguientes sin entrar en furigana (`rt`) ni saltar de bloque, y `palabraEn()` de frase.ts decide el
+  corte. Se resalta con la CSS Custom Highlight API (sin tocar el DOM del HTML del diccionario). La ficha sale en una
+  hoja encima; dentro también se toca y se apila con «← Volver». OJO: la clase es `.hoja-ficha`; `.hoja-palabra` ya
+  es de los botones de la lista de palabras de la ficha de kanji.
 - Búsqueda por definición, tres cosas que costó afinar y conviene no deshacer:
   relevancia **por palabras** con el mismo tokenizador del índice (así «to eat» encuentra los
   sentidos escritos «eat», y los diccionarios que pegan la cabecera al sentido —«먹다 eat» en

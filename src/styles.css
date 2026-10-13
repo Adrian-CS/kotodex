@@ -322,3 +322,9 @@ span.hoja-parte { border-style: dashed; }
 .boton { display: inline-flex; align-items: center; height: 44px; padding: 0 16px; border: 1px solid var(--rule);
   border-radius: 10px; background: var(--sheet); cursor: pointer; }
 .boton.disabled { opacity: 0.5; cursor: default; }
+
+/* Palabra tocada dentro de una definición (tocarTexto.ts). */
+::highlight(kotodex-toque) { background-color: color-mix(in srgb, var(--accent) 22%, transparent); }
+/* Hoja de la palabra tocada: las fichas de dentro, sin el margen de la lista de resultados. */
+.hoja-ficha-cabecera { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.hoja-ficha .entry:first-of-type { margin-top: 0; }

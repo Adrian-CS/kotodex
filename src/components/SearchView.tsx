@@ -11,6 +11,7 @@ import { EntryCard } from "./EntryCard";
 import { KanjiSheet } from "./KanjiSheet";
 import { RadicalPicker } from "./RadicalPicker";
 import { DibujoKanji } from "./DibujoKanji";
+import { PalabraSheet } from "./PalabraSheet";
 import { porcentaje, useImportacion } from "../importaciones";
 import { esFrase, palabraEn, soloFrase, trozo } from "../frase";
 import { fraseHtml } from "../anki";
@@ -71,6 +72,11 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
   const [pilaKanji, setPilaKanji] = useState<string[]>([]);
   const abrirKanji = useCallback((k: string) => setPilaKanji([k]), []);
   const kanji = pilaKanji.at(-1) ?? null;
+  // Palabras tocadas dentro de las definiciones: desde la búsqueda se abre una pila nueva; desde la
+  // hoja, se apila encima.
+  const [pilaPalabras, setPilaPalabras] = useState<string[]>([]);
+  const abrirPalabra = useCallback((p: string) => setPilaPalabras([p]), []);
+  const apilarPalabra = useCallback((p: string) => setPilaPalabras(pila => [...pila, p]), []);
   const [radicalesAbierto, setRadicalesAbierto] = useState(false);
   const [dibujoAbierto, setDibujoAbierto] = useState(false);
   const [errorPegar, setErrorPegar] = useState(false);
@@ -291,6 +297,7 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
           inCollection={dupes.get(entryKey(e.expression, e.reading))}
           added={anadidas?.get(entryKey(e.expression, e.reading))}
           onKanji={conKanji ? abrirKanji : undefined}
+          onPalabra={abrirPalabra}
           frase={frase}
           t={t}
           idioma={idioma}
@@ -311,11 +318,23 @@ export function SearchView({ query, setQuery, settings, setSettings, onOpenDicts
         consulta={query}
         t={t}
       />
+      <PalabraSheet
+        pila={pilaPalabras}
+        onClose={() => setPilaPalabras([])}
+        onVolver={() => setPilaPalabras(p => p.slice(0, -1))}
+        onPalabra={apilarPalabra}
+        onKanji={conKanji ? abrirKanji : undefined}
+        onBuscar={palabra => { setPilaPalabras([]); setQuery(palabra); }}
+        settings={settings}
+        setSettings={setSettings}
+        t={t}
+        idioma={idioma}
+      />
       <KanjiSheet
         kanji={kanji}
         anterior={pilaKanji.at(-2)}
         onClose={() => setPilaKanji([])}
-        onBuscar={palabra => { setPilaKanji([]); setQuery(palabra); }}
+        onBuscar={palabra => { setPilaKanji([]); setPilaPalabras([]); setQuery(palabra); }}
         onKanji={k => setPilaKanji(p => [...p, k])}
         onVolver={() => setPilaKanji(p => p.slice(0, -1))}
         t={t}

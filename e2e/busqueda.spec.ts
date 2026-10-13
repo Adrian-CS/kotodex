@@ -76,3 +76,39 @@ test("frase pegada: tocar una palabra la busca", async ({ page }) => {
   await expect(page.locator(".frase .en-foco")).toHaveText(["食", "べ", "た"]);
   await expect(page.locator(".entry-word").first()).toHaveText("食べる");
 });
+
+/** Coordenadas del centro del carácter `c` dentro del primer elemento que case con `selector`. */
+async function centroDe(page: import("@playwright/test").Page, selector: string, c: string) {
+  return page.evaluate(([sel, car]) => {
+    const raiz = document.querySelector(sel)!;
+    const andador = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT);
+    for (let n = andador.nextNode() as Text | null; n; n = andador.nextNode() as Text | null) {
+      const i = n.data.indexOf(car);
+      if (i < 0) continue;
+      const r = document.createRange();
+      r.setStart(n, i); r.setEnd(n, i + 1);
+      const caja = r.getBoundingClientRect();
+      return { x: caja.left + caja.width * 0.75, y: caja.top + caja.height / 2 };
+    }
+    throw new Error(`no está ${car}`);
+  }, [selector, c] as const);
+}
+
+test("tocar una palabra en la definición abre su ficha encima, y se puede apilar", async ({ page }) => {
+  await buscar(page, "箸");
+  const def = ".entry .defs-ja .def-html";
+  await expect(page.locator(def).first()).toContainText("食べ物");
+  // Mitad derecha del carácter a propósito: el caret cae detrás y hay que corregirlo.
+  const p = await centroDe(page, def, "食");
+  await page.mouse.click(p.x, p.y);
+  const hoja = page.locator("dialog.hoja-ficha[open]");
+  await expect(hoja.locator(".entry-word").first()).toHaveText("食べる");
+  // Dentro de la hoja también se toca: la definición monolingüe de 食べる lleva 口.
+  const q = await centroDe(page, "dialog.hoja-ficha[open] .defs-ja .def-html", "口");
+  await page.mouse.click(q.x, q.y);
+  // 口 no está en los diccionarios de prueba: no se abre nada y la hoja sigue en 食べる.
+  await expect(hoja.locator(".entry-word").first()).toHaveText("食べる");
+  await hoja.getByRole("button", { name: "Buscar aquí" }).click();
+  await expect(page.locator("input[type=search]")).toHaveValue("食べる");
+  await expect(hoja).toHaveCount(0);
+});
