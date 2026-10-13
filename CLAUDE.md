@@ -175,7 +175,9 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
 - `src/history.ts` + `components/HistoryView.tsx` — historial indexado por la palabra a la que se llega, no por
   lo tecleado: buscar 食べた y 食べる deja una entrada. Si la consulta nueva empieza por la anterior y han pasado
   menos de 2 min, sustituye a la anterior (escribir 食べる no deja 食, 食べ y 食べる). Segunda pestaña
-  «Añadidas a Anki»: la tabla `added` (clave `expresión\u0000lectura`), con mazo y fecha.
+  «Añadidas a Anki»: la tabla `added` (clave `expresión\u0000lectura`), con mazo y fecha. En «Buscadas», con
+  servidor, «Seleccionar» permite añadir varias de golpe (`src/anadirVarias.ts`: de una en una, cada una armada
+  con search() como desde su ficha; las duplicadas se cuentan, no se fuerzan). Con AnkiMobile no: cada tarjeta sale de la app.
 - `src/copia.ts` — copia de seguridad: historial, añadidas, ajustes (SIN el token) y preferencias de cada
   diccionario por título (no los términos: se reimportan del .zip). Restaurar MEZCLA, no borra. Exportar va
   por `navigator.share` con un File (en iOS, «Guardar en Archivos») y si no, descarga. Automática cada 24 h al
@@ -222,6 +224,8 @@ sistema). Tres decisiones:
 - Las razones del deinflector japonés se guardan en la tabla con la **clave original de Yomitan**
   (`past`, `-te`) y se traducen al enseñarlas. Las 450 coreanas NO se traducen: ya son terminología
   gramatical coreana y traducirlas las haría menos útiles.
+- Los errores del servidor llegan traducidos, y con `code` (la clave sin traducir): la PWA decide por ella, nunca
+  por el texto (antes «Añadir igualmente» solo salía con la interfaz en español).
 - Los errores del servidor llegan traducidos: `ServiceError` lleva una CLAVE y sus parámetros
   (`server/app/textos.py`), y se traduce al responder con la cabecera `Accept-Language` que manda
   la PWA. Sin eso tendrías la interfaz en japonés y los errores en castellano.

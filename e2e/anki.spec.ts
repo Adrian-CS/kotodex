@@ -14,7 +14,10 @@ async function servidorFalso(page: Page) {
     if (ruta === "/health") return json({ status: "ok", notetype: "JP Dict", sync: false, autosync: {} });
     if (ruta === "/notes/check") return json({ results: [] });
     if (ruta === "/notes") {
-      recibido.notas.push(req.postDataJSON());
+      const nota = req.postDataJSON();
+      // 今日 hace de palabra que ya está en la colección (el texto viene traducido; manda «code»).
+      if (nota.fields.Expression === "今日" && !nota.allow_duplicate) return json({ detail: "既にあります", code: "duplicada" }, 409);
+      recibido.notas.push(nota);
       return json({ note_id: 1, deck: "日本語", audio: null, duplicate: false, sync_in_seconds: 60 });
     }
     if (ruta === "/copia" && req.method() === "PUT") { recibido.copias.push(req.postDataJSON()); return json({ ok: true }); }
@@ -84,4 +87,36 @@ test("copia de seguridad: automática al abrir, exportar y restaurar", async ({ 
   }));
   await page.locator('input[type=file][accept*=json]').setInputFiles(ruta);
   await expect(page.getByText(/Restaurado: [1-9]\d* del historial/)).toBeVisible();
+});
+
+test("historial: seleccionar varias y añadirlas de una vez", async ({ page }) => {
+  const recibido = await servidorFalso(page);
+  await abrirConDiccionarios(page);
+  for (const [q, palabra] of [["橋", "橋"], ["今日", "今日"], ["食べた", "食べる"]]) {
+    await buscar(page, q);
+    await expect(page.locator(".entry-word").first()).toHaveText(palabra);
+  }
+  await page.locator("input[type=search]").blur();
+  await page.getByRole("button", { name: "Historial", exact: true }).click();
+  await page.getByRole("button", { name: "Seleccionar para añadir a Anki" }).click();
+  await page.getByRole("button", { name: /Todas las no añadidas \(3\)/ }).click();
+  // Quitar una a mano: 橋 no se añade.
+  await page.locator(".history-item", { hasText: "橋" }).click();
+  await page.getByRole("button", { name: "Añadir 2 a Anki" }).click();
+  await expect(page.getByText("Añadidas 1. Ya estaban en Anki: 1.")).toBeVisible();
+  expect(recibido.notas.map(n => n.fields.Expression)).toEqual(["食べる"]);
+  // La que se añadió queda marcada «en Anki» en la lista.
+  await expect(page.locator(".history-item", { hasText: "食べる" }).locator(".history-added")).toBeVisible();
+});
+
+test("«Añadir igualmente» sale con el error traducido (decide la clave, no el texto)", async ({ page }) => {
+  await servidorFalso(page);
+  await abrirConDiccionarios(page);
+  await buscar(page, "今日");
+  await expect(page.locator(".entry-word").first()).toHaveText("今日");
+  // Cerrar el teclado antes de tocar abajo: con él abierto la barra de pestañas está escondida y
+  // reaparecería encima del botón.
+  await page.locator("input[type=search]").blur();
+  await page.getByRole("button", { name: "Añadir a Anki" }).first().click();
+  await expect(page.getByRole("button", { name: "Añadir igualmente" })).toBeVisible();
 });

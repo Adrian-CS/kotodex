@@ -80,12 +80,15 @@ async function pedirConMetodo(s: Settings, method: string, path: string, body?: 
   }
 
   if (!response.ok) {
-    const detail = await response.json().then(d => d?.detail).catch(() => null);
+    const datos = await response.json().catch(() => null);
+    const detail = datos?.detail;
     const message = typeof detail === "string" ? detail : `El servidor respondió ${response.status}.`;
     throw new ServerError(
       response.status === 401 ? "Token incorrecto: revísalo en Ajustes." : message,
       response.status,
-      response.status === 409 && typeof detail === "string" && detail.includes("ya está en la colección"),
+      // Por la clave, no por el texto: el texto llega traducido al idioma de la interfaz. El
+      // texto solo cuenta con un servidor anterior a la clave.
+      datos?.code === "duplicada" || (response.status === 409 && typeof detail === "string" && detail.includes("ya está en la colección")),
     );
   }
   return response;

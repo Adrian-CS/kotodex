@@ -90,6 +90,9 @@ def test_duplicado_se_rechaza_y_se_puede_forzar(client):
     r = client.post("/notes", json={"fields": WORD, "deck": "日本語::辞書"})
     assert r.status_code == 409
     assert "ya está en la colección" in r.json()["detail"]
+    # La PWA decide por la clave, que no cambia con el idioma.
+    r = client.post("/notes", json={"fields": WORD, "deck": "日本語::辞書"}, headers={"Accept-Language": "ja"})
+    assert r.json()["code"] == "duplicada"
 
     r = client.post("/notes", json={"fields": WORD, "deck": "日本語::辞書", "allow_duplicate": True})
     assert r.status_code == 200

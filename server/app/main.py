@@ -74,7 +74,9 @@ async def service_error_handler(request: Request, exc: ServiceError) -> JSONResp
     idioma = idioma_de(request.headers.get("accept-language"))
     return JSONResponse(
         status_code=exc.status,
-        content={"detail": traducir(exc.clave, idioma, exc.params)},
+        # «code» es la clave sin traducir: la PWA decide con ella (p. ej. ofrecer «Añadir igualmente»
+        # ante «duplicada») sin depender del idioma del texto.
+        content={"detail": traducir(exc.clave, idioma, exc.params), "code": exc.clave},
     )
 
 

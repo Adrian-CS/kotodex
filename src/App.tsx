@@ -84,7 +84,7 @@ export default function App() {
             idioma={idioma}
           />
         </div>
-        {tab === "history" && <HistoryView onSearch={buscarDesdeHistorial} t={t} locale={locale} />}
+        {tab === "history" && <HistoryView onSearch={buscarDesdeHistorial} settings={settings} setSettings={setSettings} t={t} locale={locale} />}
         {tab === "dicts" && <DictionariesView t={t} locale={locale} />}
         {tab === "settings" && <SettingsView settings={settings} setSettings={setSettings} t={t} />}
       </main>
