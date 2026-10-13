@@ -77,6 +77,8 @@ def test_añadir_nota_con_audio_y_mazo_nuevo(client):
     body = r.json()
     assert body["note_id"] > 0
     assert body["deck"] == "日本語::辞書"
+    # Sin credenciales de AnkiWeb no hay sync tras añadir: la PWA no promete nada.
+    assert body["sync_in_seconds"] is None
     assert body["duplicate"] is False
     # El pack de prueba tiene «食べる - たべる.mp3», así que debe engancharlo.
     assert body["audio"] == "食べる - たべる.mp3"

@@ -67,7 +67,11 @@ export const EntryCard = memo(function EntryCard({ entry, settings, setSettings,
         kind: "done",
         text: (note.audio
           ? t("entry.addedWithAudio", { deck: note.deck })
-          : t("entry.addedNoAudio", { deck: note.deck })) + (conFrase ? t("entry.withSentence") : ""),
+          : t("entry.addedNoAudio", { deck: note.deck }))
+          + (conFrase ? t("entry.withSentence") : "")
+          + (note.sync_in_seconds != null
+            ? t("entry.syncIn", { when: note.sync_in_seconds < 90 ? `${note.sync_in_seconds} s` : `${Math.round(note.sync_in_seconds / 60)} min` })
+            : ""),
       });
     } catch (e) {
       const error = e as ServerError;

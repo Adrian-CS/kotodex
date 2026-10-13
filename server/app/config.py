@@ -43,6 +43,7 @@ class Settings:
     ankiweb_endpoint: str | None
     cors_origins: tuple[str, ...]
     sync_every_hours: float
+    sync_after_add_seconds: float
     smtp_host: str
     smtp_port: int
     smtp_user: str
@@ -101,6 +102,7 @@ def load_settings() -> Settings:
         ankiweb_endpoint=_env("ANKIWEB_ENDPOINT") or None,
         cors_origins=tuple(o.strip() for o in _env("KOTODEX_CORS_ORIGINS").split(",") if o.strip()),
         sync_every_hours=float(_env("KOTODEX_SYNC_EVERY_HOURS", "12") or 0),
+        sync_after_add_seconds=float(_env("KOTODEX_SYNC_AFTER_ADD_SECONDS", "60") or 0),
         smtp_host=_env("KOTODEX_SMTP_HOST"),
         smtp_port=int(_env("KOTODEX_SMTP_PORT", "587") or 587),
         smtp_user=_env("KOTODEX_SMTP_USER"),

@@ -24,6 +24,8 @@ export interface AddedNote {
   deck: string;
   audio: string | null;
   duplicate: boolean;
+  /** En cuántos segundos sincroniza el servidor con AnkiWeb por esta nota (null = no lo hará solo). */
+  sync_in_seconds?: number | null;
 }
 
 export interface EnsureResult {

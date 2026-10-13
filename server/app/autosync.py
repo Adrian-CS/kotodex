@@ -25,6 +25,9 @@ from .notify import notificar
 
 log = logging.getLogger("kotodex.autosync")
 
+# Con altas seguidas el sync se va retrasando, pero no más que esto desde la primera.
+MAX_ESPERA = 300.0
+
 INSTRUCCIONES = """\
 La sincronización automática con AnkiWeb se ha parado y necesita que intervengas.
 
@@ -50,6 +53,11 @@ class AutoSync:
         self.service = service
         self.settings = settings
         self._parar = threading.Event()
+        self._despertar = threading.Event()
+        self._cerrojo = threading.Lock()
+        # Sync pendiente por notas añadidas (hora de reloj) y cuándo se añadió la primera de la ráfaga.
+        self._sync_tras_anadir: float | None = None
+        self._primera_pendiente: float | None = None
         self._hilo: threading.Thread | None = None
         self._estado = Path(settings.collection_path).parent / "autosync.json"
         self.ultimo_resultado: str = "todavía no se ha ejecutado"
@@ -73,59 +81,83 @@ class AutoSync:
 
     # ---- ciclo de vida --------------------------------------------------
 
+    @property
+    def _periodico(self) -> bool:
+        return self.settings.sync_every_hours > 0
+
+    @property
+    def _tras_anadir(self) -> bool:
+        return self.settings.sync_after_add_seconds > 0
+
     def start(self) -> None:
         s = self.settings
-        if s.sync_every_hours <= 0:
-            log.info("Sincronización automática desactivada (KOTODEX_SYNC_EVERY_HOURS=0).")
+        if not self._periodico and not self._tras_anadir:
+            log.info("Sincronización automática desactivada (KOTODEX_SYNC_EVERY_HOURS y _AFTER_ADD_SECONDS a 0).")
             return
         if not s.can_sync:
             log.warning("Sincronización automática pedida pero faltan las credenciales de AnkiWeb.")
             return
         self._hilo = threading.Thread(target=self._bucle, name="autosync", daemon=True)
         self._hilo.start()
-        log.info("Sincronización automática cada %s h.", s.sync_every_hours)
+        log.info(
+            "Sincronización automática: cada %s h y %s s después de añadir.",
+            s.sync_every_hours or "nunca", s.sync_after_add_seconds or "nunca",
+        )
 
     def stop(self) -> None:
         self._parar.set()
+        self._despertar.set()
         if self._hilo is not None:
             self._hilo.join(timeout=5)
 
-    def nudge(self, delay_seconds: float = 180.0) -> None:
+    def nudge(self) -> float | None:
         """
-        Adelanta la próxima sincronización tras añadir una nota.
+        Programa una sincronización poco después de añadir una nota, para que al abrir AnkiMobile
+        ya esté. Devuelve en cuántos segundos (o None si no hay sync tras añadir).
 
-        No sincroniza al momento a propósito: añadir tres palabras seguidas haría tres syncs. Con
-        el retraso, una ráfaga de altas se resuelve en uno solo. Nunca la retrasa, solo la adelanta.
+        Cada nota nueva la vuelve a retrasar, así una ráfaga de altas se resuelve en un solo sync;
+        pero nunca más de MAX_ESPERA desde la primera, o añadir sin parar no sincronizaría nunca.
         """
-        s = self.settings
-        if s.sync_every_hours <= 0 or not s.can_sync:
-            return
-        intervalo = s.sync_every_hours * 3600
-        objetivo = time.time() + delay_seconds
-        if objetivo < self._leer_marca() + intervalo:
-            self._escribir_marca(objetivo - intervalo)
-            log.info("Sincronización adelantada: en %.0f s.", delay_seconds)
+        if not self._tras_anadir or not self.settings.can_sync or self._hilo is None:
+            return None
+        ahora = time.time()
+        with self._cerrojo:
+            if self._primera_pendiente is None:
+                self._primera_pendiente = ahora
+            self._sync_tras_anadir = min(
+                ahora + self.settings.sync_after_add_seconds, self._primera_pendiente + MAX_ESPERA
+            )
+            restante = self._sync_tras_anadir - ahora
+        self._despertar.set()
+        log.info("Sincronización en %.0f s (nota añadida).", restante)
+        return restante
 
     @property
     def proximo_en_segundos(self) -> float | None:
-        if self.settings.sync_every_hours <= 0:
-            return None
-        return max(0.0, self._leer_marca() + self.settings.sync_every_hours * 3600 - time.time())
+        candidatos = []
+        if self._periodico:
+            candidatos.append(self._leer_marca() + self.settings.sync_every_hours * 3600)
+        if self._sync_tras_anadir is not None:
+            candidatos.append(self._sync_tras_anadir)
+        return max(0.0, min(candidatos) - time.time()) if candidatos else None
 
     # ---- bucle ----------------------------------------------------------
 
     def _bucle(self) -> None:
-        # Un respiro al arrancar: que la colección abra tranquila antes de salir a la red.
-        if self._parar.wait(60):
+        # Un respiro al arrancar: que la colección abra tranquila antes de salir a la red. Una nota
+        # añadida en ese rato no espera de más: su sync sale como mucho a los 60 s igualmente.
+        if self._parar.wait(min(60, self.settings.sync_after_add_seconds or 60)):
             return
         while not self._parar.is_set():
-            espera = self.proximo_en_segundos or 0.0
-            if espera > 0:
-                # Despertar cada minuto como mucho: así se reacciona rápido al apagado y a las
-                # sincronizaciones adelantadas por nudge().
-                if self._parar.wait(min(espera, 60)):
-                    return
+            espera = self.proximo_en_segundos
+            if espera is None or espera > 0:
+                # nudge() despierta al hilo para que recalcule; si no, como mucho cada minuto.
+                self._despertar.wait(60 if espera is None else min(espera, 60))
+                self._despertar.clear()
                 continue
+            with self._cerrojo:
+                self._sync_tras_anadir = None
+                self._primera_pendiente = None
             self._sincronizar()
 
     def _sincronizar(self) -> None:

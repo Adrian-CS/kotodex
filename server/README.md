@@ -230,7 +230,10 @@ consulta de unos 60 ms, así que la PWA lo hace en paralelo a enseñar los resul
 ## Sincronización automática y avisos
 
 `KOTODEX_SYNC_EVERY_HOURS` (12 por defecto, 0 lo desactiva) hace que el servidor sincronice solo en
-un hilo aparte. La marca del último sync se guarda en `data/autosync.json`, así que reiniciar no
+un hilo aparte. Además, `KOTODEX_SYNC_AFTER_ADD_SECONDS` (60 por defecto, 0 lo desactiva) sincroniza
+ese rato después de añadir una nota, para que al abrir AnkiMobile ya esté: cada nota nueva vuelve a
+contar, así una ráfaga de altas es un solo sync, pero nunca pasan más de 5 minutos desde la primera.
+`/notes` devuelve `sync_in_seconds` y la PWA lo enseña («se sincroniza en 60 s»). La marca del último sync se guarda en `data/autosync.json`, así que reiniciar no
 reinicia la cuenta. El estado sale en `/health`.
 
 **Qué resuelve y qué no.** Sincronizar a menudo evita que se te olvide y reduce la ventana en la que

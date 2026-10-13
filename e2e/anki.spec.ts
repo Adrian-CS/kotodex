@@ -15,7 +15,7 @@ async function servidorFalso(page: Page) {
     if (ruta === "/notes/check") return json({ results: [] });
     if (ruta === "/notes") {
       recibido.notas.push(req.postDataJSON());
-      return json({ note_id: 1, deck: "日本語", audio: null, duplicate: false });
+      return json({ note_id: 1, deck: "日本語", audio: null, duplicate: false, sync_in_seconds: 60 });
     }
     if (ruta === "/copia" && req.method() === "PUT") { recibido.copias.push(req.postDataJSON()); return json({ ok: true }); }
     if (ruta === "/copia") return recibido.copias.length ? json(recibido.copias.at(-1)) : json({ detail: "sin copias" }, 404);
@@ -36,6 +36,7 @@ test("añadir desde una frase guarda la frase y sale en «Añadidas»", async ({
   await expect(page.locator(".entry-word").first()).toHaveText("食べる");
   await page.getByRole("button", { name: "Añadir a Anki" }).first().click();
   await expect(page.locator(".added-note").first()).toContainText("con la frase");
+  await expect(page.locator(".added-note").first()).toContainText("se sincroniza en 60 s");
 
   const nota = recibido.notas[0];
   expect(nota.fields.Expression).toBe("食べる");

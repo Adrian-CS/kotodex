@@ -199,6 +199,7 @@ Tras cualquier cambio: `.\deploy\windows\restart-kotodex.ps1`.
 | `KOTODEX_DEFAULT_DECK` | Mazo por defecto. |
 | `ANKIWEB_USERNAME` / `ANKIWEB_PASSWORD` | Para que `/sync` funcione. |
 | `KOTODEX_SYNC_EVERY_HOURS` | Sync automático cada X horas. 0 lo desactiva. |
+| `KOTODEX_SYNC_AFTER_ADD_SECONDS` | Sync ese rato después de añadir una tarjeta (60 por defecto). 0 lo desactiva. |
 | `KOTODEX_SMTP_*` | Avisar por correo si el sync automático falla. |
 | `KOTODEX_NOTIFY_WEBHOOK` | Avisar por ntfy u otro webhook de texto plano. |
 | `KOTODEX_VOICEVOX_URL` / `_SPEAKER` | Síntesis de voz y qué estilo usar (ver tabla arriba). |

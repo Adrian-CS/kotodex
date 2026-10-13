@@ -175,8 +175,9 @@ async def add_note(body: NoteRequest) -> dict:
         with_audio=body.with_audio,
     )
     # Que la tarjeta llegue al iPhone sin tener que ir a Ajustes a sincronizar a mano.
-    autosync.nudge()
-    return nota
+    # La PWA lo enseña: «se sincroniza en 1 min». None si no hay sync tras añadir.
+    en = autosync.nudge()
+    return {**nota, "sync_in_seconds": round(en) if en is not None else None}
 
 
 @app.post("/notes/check", dependencies=[Auth])

@@ -119,7 +119,7 @@ def test_sin_credenciales_no_arranca(tmp_path):
 
 
 def test_desactivado_con_cero(tmp_path):
-    s = dataclasses.replace(load_settings(), sync_every_hours=0,
+    s = dataclasses.replace(load_settings(), sync_every_hours=0, sync_after_add_seconds=0,
                             collection_path=tmp_path / "c.anki2")
     auto = AutoSync(ServicioQueFalla(None), s)
     auto.start()
@@ -131,3 +131,49 @@ def test_health_informa_del_autosync(client):
     datos = client.get("/health").json()
     assert "autosync" in datos
     assert "ultimo_resultado" in datos["autosync"]
+
+
+def _con_hilo_falso(auto: AutoSync) -> AutoSync:
+    # nudge() solo programa si el hilo está en marcha; para probar la cuenta basta con fingirlo.
+    auto._hilo = threading.Thread(target=lambda: None)
+    return auto
+
+
+def test_tras_anadir_se_retrasa_con_cada_nota_pero_con_tope(tmp_path, monkeypatch):
+    s = dataclasses.replace(load_settings(), sync_every_hours=0, sync_after_add_seconds=60,
+                            ankiweb_username="u", ankiweb_password="p", collection_path=tmp_path / "c.anki2")
+    auto = _con_hilo_falso(AutoSync(ServicioQueFalla(None), s))
+    reloj = [1000.0]
+    monkeypatch.setattr("app.autosync.time.time", lambda: reloj[0])
+
+    assert auto.nudge() == 60
+    reloj[0] += 30
+    assert auto.nudge() == 60            # otra nota: vuelve a contar 60 s
+    assert auto.proximo_en_segundos == 60
+    reloj[0] += 230                      # 260 s desde la primera
+    assert auto.nudge() == 40            # el tope (300 s desde la primera) manda
+
+
+def test_tras_anadir_sin_periodico_ni_credenciales(tmp_path):
+    s = dataclasses.replace(load_settings(), sync_every_hours=0, sync_after_add_seconds=60,
+                            ankiweb_username="", ankiweb_password="", collection_path=tmp_path / "c.anki2")
+    assert AutoSync(ServicioQueFalla(None), s).nudge() is None
+
+
+def test_tras_anadir_sincroniza_una_vez(tmp_path):
+    s = dataclasses.replace(load_settings(), sync_every_hours=0, sync_after_add_seconds=0.2,
+                            ankiweb_username="u", ankiweb_password="p", collection_path=tmp_path / "c.anki2")
+    servicio = ServicioQueFalla(None)
+    auto = AutoSync(servicio, s)
+    auto.start()
+    try:
+        auto.nudge(); auto.nudge(); auto.nudge()
+        for _ in range(50):
+            if servicio.veces:
+                break
+            threading.Event().wait(0.1)
+        threading.Event().wait(0.5)
+        assert servicio.veces == 1        # tres notas, un solo sync
+        assert auto.proximo_en_segundos is None
+    finally:
+        auto.stop()

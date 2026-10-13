@@ -191,7 +191,8 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   que acabe el silencio antes de cambiar la fuente (cortarlo da AbortError y podría no desbloquear).
   Orden en el servidor: pack → caché → fuentes HTTP → VOICEVOX, cada fase medida y devuelta en `Server-Timing`;
   si el ▶ tarda más de 2 s, la ficha enseña el desglose (como la búsqueda lenta) y el servidor lo registra.
-- `server/app/autosync.py` + `notify.py` — sync automático cada X horas en un hilo aparte; si falla, avisa por
+- `server/app/autosync.py` + `notify.py` — sync 60 s después de añadir (`KOTODEX_SYNC_AFTER_ADD_SECONDS`; cada
+  nota reinicia la cuenta, con tope de 5 min desde la primera; `/notes` devuelve `sync_in_seconds`) y cada X horas, en un hilo aparte; si falla, avisa por
   correo o webhook con instrucciones. No evita los 409 (los causa un cambio de esquema, no el volumen).
 - `server/` — la API. Ver `server/README.md`: endpoints, despliegue y las trampas de la colección de Anki.
 - `COMANDOS.md` — chuleta de operación (arrancar/reiniciar el servidor, Tailscale, desplegar, diagnóstico).
@@ -249,7 +250,7 @@ test-dicts/ si falta y levanta Vite en el 5199). Sin red: KanjiVG se responde 40
 falso (`page.route`), así que se comprueba lo que la PWA MANDA, no Anki. Lo corre el CI (`ci.yml`) en cada push,
 junto con los tests del servidor; en main, si pasa, publica.
 
-Servidor: `cd server && ./venv/bin/python -m pytest tests -q` (59 casos, colección temporal). Para probarlo
+Servidor: `cd server && ./venv/bin/python -m pytest tests -q` (63 casos, colección temporal). Para probarlo
 junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173` y poner esa URL en Ajustes.
 
 ## Gotchas
