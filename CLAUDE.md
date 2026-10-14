@@ -150,7 +150,8 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   `"sufijo:reemplazo:clasesEntrada:clasesSalida"`, con las razones en español. Filtra por el campo `rules` de
   term_bank; si el diccionario no lo trae (monolingües), acepta. `suruStem()` cubre 勉強しました → 勉強 (rules `vs`).
 - `src/pitch.ts` — moras (kana pequeños se unen; っ ん ー cuentan), patrón H/L + partícula, SVG. Probado 平板/頭高/中高/尾高.
-- `src/anki.ts` — `buildFields(entry)` y `ankiMobileUrl()`. Ojo: se reemplaza `+`→`%20` (un `+` real ya va como `%2B`).
+- `src/anki.ts` — `buildFields(entry, frase?, secciones?)` y `ankiMobileUrl()`. `Settings.seccionesTarjeta` decide qué
+  definiciones (国語/Español/English) van a la tarjeta: la quitada va como campo vacío, el tipo de nota no cambia. Ojo: se reemplaza `+`→`%20` (un `+` real ya va como `%2B`).
 - `src/kanji.ts` + `components/KanjiSheet.tsx` — ficha de kanji desde diccionarios `kanji_bank` (KANJIDIC de
   yomidevs/jmdict-yomitan; rol «kanji», tabla `kanji` de Dexie v5). Los kanji del término se tocan si hay algún
   diccionario de kanji activo. «Palabras» son las que EMPIEZAN por el kanji (rango del índice); «contiene» exigiría

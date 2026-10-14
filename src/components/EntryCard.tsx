@@ -52,7 +52,7 @@ export const EntryCard = memo(function EntryCard({ entry, settings, setSettings,
   async function addToAnki(allowDuplicate = false) {
     if (!deck) return;
     const conFrase = !!frase && settings.guardarFrase;
-    const fields = buildFields(entry, conFrase ? frase : undefined);
+    const fields = buildFields(entry, conFrase ? frase : undefined, settings.seccionesTarjeta);
 
     if (settings.mode === "ankimobile") {
       await db.added.put({ key, deck, at: Date.now() });

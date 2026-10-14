@@ -18,6 +18,8 @@ export interface Settings {
   copiaAutomatica: boolean;
   /** Si la palabra salió de una frase tocada, guardar la frase en la tarjeta (tipo «… + frase»). */
   guardarFrase: boolean;
+  /** Qué secciones de definiciones van a la tarjeta (la app las enseña siempre todas). */
+  seccionesTarjeta: { ja: boolean; es: boolean; en: boolean };
 }
 
 const KEY = "jp-dict-settings";
@@ -33,6 +35,7 @@ const DEFAULTS: Settings = {
   idioma: "auto",
   copiaAutomatica: true,
   guardarFrase: true,
+  seccionesTarjeta: { ja: true, es: true, en: true },
 };
 
 export function loadSettings(): Settings {

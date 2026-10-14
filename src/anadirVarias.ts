@@ -41,7 +41,7 @@ export async function anadirVarias(
       const fichas = await search(p.expression);
       const ficha = fichas.find(e => e.expression === p.expression && e.reading === p.reading) ?? fichas[0];
       if (!ficha) throw new Error("ya no está en los diccionarios activos");
-      campos = buildFields(ficha);
+      campos = buildFields(ficha, undefined, settings.seccionesTarjeta);
       clave = entryKey(ficha.expression, ficha.reading);
       if (sinConexion) throw new ServerError("sin conexión", 0);
       const nota = await addNote(settings, campos, deck);

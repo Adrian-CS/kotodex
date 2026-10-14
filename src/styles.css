@@ -341,3 +341,5 @@ span.hoja-parte { border-style: dashed; }
 .hoja-ficha .entry:first-of-type { margin-top: 0; }
 /* Tarjetas sin enviar: no es un error, se arregla sola al volver la conexión. Borde neutro. */
 .aviso-pendientes { border-color: var(--rule); }
+.secciones-tarjeta { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 16px 0 0; padding: 0; border: 0; }
+.secciones-tarjeta legend { padding: 0; margin-bottom: 6px; font-size: 14px; }

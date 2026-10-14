@@ -183,6 +183,23 @@ export function SettingsView({ settings, setSettings, t }: Props) {
           <span>{t("settings.saveSentence")}</span>
         </label>
         <p className="hint">{t("settings.saveSentenceHint", { noteType: settings.noteType + SUFIJO_FRASE })}</p>
+
+        <fieldset className="secciones-tarjeta">
+          <legend>{t("settings.cardSections")}</legend>
+          {(["ja", "es", "en"] as const).map(rol => (
+            <label key={rol} className="toggle">
+              <input
+                type="checkbox"
+                checked={settings.seccionesTarjeta[rol]}
+                onChange={e => update("seccionesTarjeta", { ...settings.seccionesTarjeta, [rol]: e.target.checked })}
+              />
+              <span>{t(`entry.${rol}`)}</span>
+            </label>
+          ))}
+        </fieldset>
+        <p className={Object.values(settings.seccionesTarjeta).some(Boolean) ? "hint" : "error"}>
+          {Object.values(settings.seccionesTarjeta).some(Boolean) ? t("settings.cardSectionsHint") : t("settings.cardSectionsNone")}
+        </p>
       </section>
 
       <section className="settings-group">

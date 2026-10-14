@@ -33,7 +33,11 @@ export function fraseHtml(texto: string, inicio: number, largo: number): string 
 const joinBlocks = (blocks: DefBlock[]) =>
   blocks.map(b => `<div class="dict" data-dict="${b.dictTitle.replace(/"/g, "&quot;")}">${b.html}</div>`).join("");
 
-export function buildFields(e: Entry, frase?: string): NoteFields {
+/**
+ * @param secciones Las que van a la tarjeta (Ajustes). Una sección quitada deja su campo vacío: el
+ *   tipo de nota no cambia y la plantilla ya no enseña los campos vacíos.
+ */
+export function buildFields(e: Entry, frase?: string, secciones: Settings["seccionesTarjeta"] = { ja: true, es: true, en: true }): NoteFields {
   return {
     ...(frase ? { Sentence: frase } : {}),
     Expression: e.expression,
@@ -41,9 +45,9 @@ export function buildFields(e: Entry, frase?: string): NoteFields {
     Audio: "", // lo rellenará el servidor
     Pitch: e.pitches.length ? pitchField(e.reading, e.pitches) : "",
     PitchNum: e.pitches.join(","),
-    DefJA: joinBlocks(e.defs.ja),
-    DefES: joinBlocks(e.defs.es),
-    DefEN: joinBlocks(e.defs.en),
+    DefJA: secciones.ja ? joinBlocks(e.defs.ja) : "",
+    DefES: secciones.es ? joinBlocks(e.defs.es) : "",
+    DefEN: secciones.en ? joinBlocks(e.defs.en) : "",
   };
 }
 

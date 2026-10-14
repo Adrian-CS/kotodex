@@ -142,3 +142,19 @@ test("sin conexión: la tarjeta se guarda y se manda sola al volver", async ({ p
   await expect(aviso).toHaveCount(0);
   expect(recibido.notas.map(n => n.fields.Expression)).toEqual(["橋"]);
 });
+
+test("quitar una sección en Ajustes la deja fuera de la tarjeta, no de la app", async ({ page }) => {
+  const recibido = await servidorFalso(page);
+  await abrirConDiccionarios(page);
+  await page.getByRole("button", { name: "Ajustes", exact: true }).click();
+  await page.getByRole("checkbox", { name: "English" }).uncheck();
+  await page.getByRole("button", { name: "Buscar", exact: true }).click();
+  await buscar(page, "橋");
+  // En la app sigue saliendo.
+  await expect(page.locator(".entry").first().locator(".defs-en")).toContainText("bridge");
+  await page.locator("input[type=search]").blur();
+  await page.getByRole("button", { name: "Añadir a Anki" }).first().click();
+  await expect(page.locator(".added-note").first()).toBeVisible();
+  expect(recibido.notas[0].fields.DefEN).toBe("");
+  expect(recibido.notas[0].fields.DefES).toContain("puente");
+});
