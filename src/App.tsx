@@ -8,6 +8,7 @@ import { PendientesBanner } from "./components/PendientesBanner";
 import { loadSettings, saveSettings, type Settings } from "./settings";
 import { crearT, idiomaDelSistema, localeDe } from "./i18n";
 import { copiaAutomaticaSiToca } from "./copia";
+import { indexarKanjiPendiente } from "./importaciones";
 
 type Tab = "search" | "history" | "dicts" | "settings";
 
@@ -66,6 +67,10 @@ export default function App() {
     return () => document.removeEventListener("visibilitychange", alVolver);
   }, [settings]);
   const locale = localeDe(idioma);
+
+  // Diccionarios importados antes del índice «palabras que contienen el kanji»: se construye una vez,
+  // en segundo plano (ver indiceKanji.ts).
+  useEffect(() => { void indexarKanjiPendiente(); }, []);
 
   const buscarDesdeHistorial = (q: string) => { setQuery(q); setTab("search"); };
 

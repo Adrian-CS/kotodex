@@ -1,6 +1,7 @@
 import { unzip, unzipSync } from "fflate";
 import { db, type Dictionary, type Kanji, type Role, type Term, type TermMeta } from "./db";
 import { indexWords } from "./glosses";
+import { AcumuladorKanji, guardarIndice } from "./indiceKanji";
 
 export interface ImportProgress { stage: string; done: number; total: number }
 
@@ -65,6 +66,8 @@ export async function importarEnEsteHilo(
 
   const total = termBanks.length + metaBanks.length + kanjiBanks.length;
   let done = 0, termCount = 0, metaCount = 0, pitchRows = 0, kanjiCount = 0, freqRows = 0;
+  // «Palabras que contienen este kanji»: se va juntando mientras se importa (indiceKanji.ts).
+  const indiceKanji = new AcumuladorKanji();
 
   try {
     for (const name of termBanks) {
@@ -86,7 +89,8 @@ export async function importarEnEsteHilo(
           words: indexWords(glossary, r[0]),
         };
       });
-      await db.terms.bulkAdd(terms);
+      const ids = await db.terms.bulkAdd(terms, { allKeys: true });
+      terms.forEach((t, i) => indiceKanji.anadir(ids[i], t.expression, t.score));
       termCount += terms.length;
       done++;
     }
@@ -128,6 +132,7 @@ export async function importarEnEsteHilo(
   await db.dictionaries.update(dictId, {
     terms: termCount, metas: metaCount, pitches: pitchRows, kanji: kanjiCount, frecuencias: freqRows, frequencyMode, role,
   });
+  if (termCount > 0) await guardarIndice(dictId, indiceKanji);
   onProgress({ stage: "Listo", done: total, total });
   return (await db.dictionaries.get(dictId))!;
 }
@@ -163,6 +168,7 @@ export async function deleteDictionary(id: number, onProgress?: (borrados: numbe
     borrados += claves.length;
     onProgress?.(borrados);
   }
+  await db.kanjiPalabras.where("dict").equals(id).delete();
   for (;;) {
     const claves = await db.kanji.where("dict").equals(id).limit(LOTE_BORRADO).primaryKeys();
     if (!claves.length) break;

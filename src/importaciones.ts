@@ -6,7 +6,8 @@
 
 import { useSyncExternalStore } from "react";
 import { importarEnEsteHilo, type ImportProgress } from "./importer";
-import type { MensajeImportacion } from "./importer.worker";
+import type { MensajeImportacion, TrabajoImportacion } from "./importer.worker";
+import { indexarDiccionario, sinIndice } from "./indiceKanji";
 
 export interface EstadoImportacion {
   /** Lo que se está importando ahora, o null si nada. */
@@ -19,7 +20,7 @@ export interface EstadoImportacion {
 
 let estado: EstadoImportacion = { progreso: null, pendientes: 0, errores: [] };
 const oyentes = new Set<() => void>();
-const cola: File[] = [];
+const cola: TrabajoImportacion[] = [];
 let trabajando = false;
 
 function cambiar(parcial: Partial<EstadoImportacion>) {
@@ -27,8 +28,12 @@ function cambiar(parcial: Partial<EstadoImportacion>) {
   oyentes.forEach(f => f());
 }
 
-function importarUno(file: File): Promise<void> {
+function importarUno(file: TrabajoImportacion): Promise<void> {
   if (typeof Worker === "undefined") {
+    if (!(file instanceof File)) {
+      const stage = `Preparando los kanji de «${file.titulo}»`;
+      return indexarDiccionario(file.indexar, (done, total) => cambiar({ progreso: { stage, done, total } }));
+    }
     return importarEnEsteHilo(file, progreso => cambiar({ progreso })).then(() => undefined);
   }
   return new Promise((resolver, rechazar) => {
@@ -51,7 +56,8 @@ async function procesar() {
   trabajando = true;
   while (cola.length) {
     const file = cola.shift()!;
-    cambiar({ pendientes: cola.length, progreso: { stage: file.name, done: 0, total: 1 } });
+    const nombre = file instanceof File ? file.name : file.titulo;
+    cambiar({ pendientes: cola.length, progreso: { stage: nombre, done: 0, total: 1 } });
     try {
       await importarUno(file);
     } catch (e) {
@@ -62,6 +68,21 @@ async function procesar() {
   cambiar({ progreso: null, pendientes: 0 });
   // Pedir almacenamiento persistente es cosa de la ventana, no del worker.
   navigator.storage?.persist?.().catch(() => {});
+}
+
+/**
+ * Los diccionarios importados antes del índice «kanji → palabras que lo contienen» lo construyen
+ * aquí, una sola vez y en segundo plano, con la misma cola y el mismo aviso de progreso que una
+ * importación. Si se cierra la app a medias, se repite la próxima vez (no se marca hasta acabar).
+ */
+let indexadoPedido = false;
+export async function indexarKanjiPendiente() {
+  if (indexadoPedido) return;
+  indexadoPedido = true;
+  const faltan = await sinIndice();
+  if (!faltan.length) return;
+  cola.push(...faltan.map(d => ({ indexar: d.id, titulo: d.title })));
+  procesar();
 }
 
 /** Pone los archivos en cola. Una tanda nueva empieza con los errores de la anterior borrados. */

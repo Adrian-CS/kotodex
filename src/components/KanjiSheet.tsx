@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "../db";
 import { esKanji, fichaKanji, palabrasConKanji, partirOkurigana, type FichaKanji, type PalabraConKanji } from "../kanji";
 import { radicalKangxi } from "../radicales";
 import { trazosKanji, type Trazos } from "../trazos";
@@ -30,6 +32,10 @@ export function KanjiSheet({ kanji, onClose, onBuscar, onKanji, anterior, onVolv
   const dialogo = useRef<HTMLDialogElement>(null);
   const [ficha, setFicha] = useState<FichaKanji | null | undefined>(undefined);
   const [palabras, setPalabras] = useState<PalabraConKanji[]>([]);
+  const [contiene, setContiene] = useState(false);
+  // Cuántos diccionarios tienen ya el índice de kanji: si termina de construirse con la hoja
+  // abierta, la lista pasa sola de «empiezan por» a «contienen».
+  const indexados = useLiveQuery(() => db.dictionaries.filter(d => !!d.kanjiIndexado).count(), []);
   // Radical y componentes vienen del mismo SVG de KanjiVG que los trazos (misma promesa en memoria).
   const [estructura, setEstructura] = useState<Trazos | null>(null);
 
@@ -43,17 +49,24 @@ export function KanjiSheet({ kanji, onClose, onBuscar, onKanji, anterior, onVolv
 
   useEffect(() => {
     setFicha(undefined);
-    setPalabras([]);
     setEstructura(null);
     if (!kanji) return;
     // Al saltar a un componente, la hoja ya estaba abierta y desplazada: se vuelve arriba.
     dialogo.current?.scrollTo({ top: 0 });
     let cancelado = false;
     fichaKanji(kanji).then(f => { if (!cancelado) setFicha(f); });
-    palabrasConKanji(kanji).then(p => { if (!cancelado) setPalabras(p); });
     trazosKanji(kanji).then(e => { if (!cancelado) setEstructura(e); }).catch(() => {});
     return () => { cancelado = true; };
   }, [kanji]);
+
+  // Aparte: se repite cuando termina de construirse el índice de kanji (ver `indexados`).
+  useEffect(() => {
+    setPalabras([]);
+    if (!kanji) return;
+    let cancelado = false;
+    palabrasConKanji(kanji).then(r => { if (!cancelado) { setPalabras(r.palabras); setContiene(r.contiene); } });
+    return () => { cancelado = true; };
+  }, [kanji, indexados]);
 
   const datos = ficha ? [
     ficha.strokes !== undefined && t("kanji.strokes", { count: ficha.strokes }),
@@ -149,7 +162,7 @@ export function KanjiSheet({ kanji, onClose, onBuscar, onKanji, anterior, onVolv
 
           {palabras.length > 0 && (
             <section className="hoja-palabras">
-              <h3 className="defs-label">{t("kanji.words", { kanji })}</h3>
+              <h3 className="defs-label">{t(contiene ? "kanji.wordsWith" : "kanji.words", { kanji })}</h3>
               <ul>
                 {palabras.map(p => (
                   <li key={`${p.expression}|${p.reading}`}>

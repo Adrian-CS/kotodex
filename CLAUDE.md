@@ -154,8 +154,10 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   definiciones (国語/Español/English) van a la tarjeta: la quitada va como campo vacío, el tipo de nota no cambia. Ojo: se reemplaza `+`→`%20` (un `+` real ya va como `%2B`).
 - `src/kanji.ts` + `components/KanjiSheet.tsx` — ficha de kanji desde diccionarios `kanji_bank` (KANJIDIC de
   yomidevs/jmdict-yomitan; rol «kanji», tabla `kanji` de Dexie v5). Los kanji del término se tocan si hay algún
-  diccionario de kanji activo. «Palabras» son las que EMPIEZAN por el kanji (rango del índice); «contiene» exigiría
-  recorrer la tabla o indexar los kanji al importar. El JLPT de KANJIDIC es el antiguo (1–4); el actual (N5–N1) sale de `src/jlpt.ts`,
+  diccionario de kanji activo. «Palabras con 食» son las que lo CONTIENEN (和食, 夕食): `src/indiceKanji.ts`, tabla
+  `kanjiPalabras` (Dexie v7, clave [dict+kanji]) con los ids de las 150 palabras de más score por kanji y diccionario.
+  Se llena al importar y, para lo importado antes, una vez en segundo plano en el worker del importador (misma cola
+  y aviso; `Dictionary.kanjiIndexado`). Mientras falte, la ficha enseña las que EMPIEZAN por el kanji y cambia sola al acabar. El JLPT de KANJIDIC es el antiguo (1–4); el actual (N5–N1) sale de `src/jlpt.ts`,
   las listas de Waller (no hay oficiales desde 2010), y el antiguo solo se enseña si el kanji no está en ellas.
 - `src/trazos.ts` + `components/KanjiTrazos.tsx` — orden de trazos de KanjiVG (CC BY-SA): el SVG de cada kanji se
   pide a raw.githubusercontent.com (CORS abierto) al abrir su ficha y se guarda con la Cache API (`kanjivg-v1`), así

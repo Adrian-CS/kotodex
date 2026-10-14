@@ -29,6 +29,18 @@ export interface Dictionary {
   order?: number;
   importedAt: number;
   enabled: boolean;
+  /** Ya tiene su índice «kanji → palabras que lo contienen» (indiceKanji.ts). Falta en lo anterior. */
+  kanjiIndexado?: boolean;
+}
+
+/**
+ * Las palabras de un diccionario que contienen un kanji: ids de `terms`, las de más score primero
+ * y como mucho MAX_POR_KANJI. Una fila por (diccionario, kanji): unas 6.000 por diccionario.
+ */
+export interface KanjiPalabras {
+  dict: number;
+  kanji: string;
+  ids: number[];
 }
 
 /** Fila de term_bank de Yomitan (v3). */
@@ -115,6 +127,7 @@ class JpDictDB extends Dexie {
   lookups!: Table<Lookup, string>;
   kanji!: Table<Kanji, number>;
   pendientes!: Table<Pendiente, number>;
+  kanjiPalabras!: Table<KanjiPalabras, [number, string]>;
 
   constructor() {
     super("jp-dict");
@@ -147,6 +160,11 @@ class JpDictDB extends Dexie {
     // v6: cola de tarjetas sin enviar (sin conexión con el servidor). Tabla nueva, nada que migrar.
     this.version(6).stores({
       pendientes: "++id, at",
+    });
+    // v7: índice «kanji → palabras que lo contienen». Tabla nueva: los diccionarios ya importados
+    // lo construyen en segundo plano sin reimportar (indiceKanji.ts).
+    this.version(7).stores({
+      kanjiPalabras: "[dict+kanji], dict",
     });
   }
 }

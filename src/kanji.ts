@@ -86,11 +86,17 @@ const MAX_FILAS_PALABRAS = 300;
  * (lentísimo en el iPhone) o a indexar cada kanji de cada término al importar, que exige
  * reimportar JMdict. Empezar por él es un rango del índice de expresiones y va directo.
  */
-export async function palabrasConKanji(character: string, max = 12): Promise<PalabraConKanji[]> {
+export async function palabrasConKanji(character: string, max = 12): Promise<{ palabras: PalabraConKanji[]; contiene: boolean }> {
   const dicts = (await activos()).filter(d => d.role === "ja" || d.role === "es" || d.role === "en");
   const orden = new Map(dicts.map((d, i) => [d.id!, i]));
-  const filas = (await db.terms.where("expression").startsWith(character).limit(MAX_FILAS_PALABRAS).toArray())
-    .filter(t => orden.has(t.dict) && t.expression !== character);
+  // Con el índice de indiceKanji.ts, las que lo CONTIENEN (和食, 夕食); si algún diccionario aún no
+  // lo tiene (se está construyendo), las que empiezan por él, que es un rango del índice normal.
+  const contiene = dicts.length > 0 && dicts.every(d => d.kanjiIndexado);
+  const candidatas = contiene
+    ? (await db.terms.bulkGet((await db.kanjiPalabras.bulkGet(dicts.map(d => [d.id!, character] as [number, string])))
+      .flatMap(f => f?.ids ?? []))).filter((t): t is Term => t !== undefined)
+    : await db.terms.where("expression").startsWith(character).limit(MAX_FILAS_PALABRAS).toArray();
+  const filas = candidatas.filter(t => orden.has(t.dict) && t.expression !== character);
 
   // Una entrada por (palabra, lectura): la del diccionario con más prioridad da la definición.
   const grupos = new Map<string, { t: Term; score: number }>();
@@ -103,7 +109,7 @@ export async function palabrasConKanji(character: string, max = 12): Promise<Pal
       if (orden.get(t.dict)! < orden.get(previo.t.dict)!) previo.t = t;
     }
   }
-  return [...grupos.values()]
+  const palabras = [...grupos.values()]
     .sort((a, b) => b.score - a.score || a.t.expression.length - b.t.expression.length)
     .slice(0, max)
     .map(({ t }) => ({
@@ -111,6 +117,7 @@ export async function palabrasConKanji(character: string, max = 12): Promise<Pal
       reading: t.reading,
       gloss: sentidosCortos(t.glossary).slice(0, 3).join("; "),
     }));
+  return { palabras, contiene };
 }
 
 /** Texto plano de un nodo de structured-content. */

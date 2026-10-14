@@ -26,6 +26,8 @@ mk("jmdict_en.zip", "JMdict (English)", [
     ["高い", "たかい", "adj-i", "adj-i", 100, ["tall", "expensive"], 8, ""],
     ["来る", "くる", "vk,vi", "vk", 100, ["to come"], 9, ""],
     ["勉強", "べんきょう", "n,vs", "vs", 100, ["study"], 10, ""],
+    # Contiene 食 sin empezar por él: sale en la ficha de 食 gracias al índice de indiceKanji.ts.
+    ["和食", "わしょく", "n", "", 90, ["Japanese food"], 12, ""],
 ])
 mk("jmdict_es.zip", "JMdict (Español)", [
     ["橋", "はし", "n", "", 100, ["puente"], 1, ""],

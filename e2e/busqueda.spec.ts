@@ -68,6 +68,9 @@ test("tocar 食 abre su ficha de kanji", async ({ page }) => {
   await expect(hoja).toContainText("ショク");
   await expect(hoja).toContainText("9 trazos");
   await expect(hoja.locator(".hoja-palabras")).toContainText("食べる");
+  // Las que CONTIENEN el kanji, no solo las que empiezan por él.
+  await expect(hoja.locator(".hoja-palabras")).toContainText("Palabras con 食");
+  await expect(hoja.locator(".hoja-palabras")).toContainText("和食");
 });
 
 test("frase pegada: tocar una palabra la busca", async ({ page }) => {
@@ -111,4 +114,29 @@ test("tocar una palabra en la definición abre su ficha encima, y se puede apila
   await hoja.getByRole("button", { name: "Buscar aquí" }).click();
   await expect(page.locator("input[type=search]")).toHaveValue("食べる");
   await expect(hoja).toHaveCount(0);
+});
+
+test("diccionarios importados antes del índice de kanji lo construyen solos al abrir la app", async ({ page }) => {
+  // Simular un diccionario «antiguo»: sin índice y sin la marca.
+  await page.evaluate(() => new Promise<void>(ok => {
+    const r = indexedDB.open("jp-dict");
+    r.onsuccess = () => {
+      const tx = r.result.transaction(["kanjiPalabras", "dictionaries"], "readwrite");
+      tx.objectStore("kanjiPalabras").clear();
+      const dicts = tx.objectStore("dictionaries");
+      dicts.openCursor().onsuccess = e => {
+        const c = (e.target as IDBRequest<IDBCursorWithValue | null>).result;
+        if (!c) return;
+        c.update({ ...c.value, kanjiIndexado: false });
+        c.continue();
+      };
+      tx.oncomplete = () => { r.result.close(); ok(); };
+    };
+  }));
+  await page.reload();
+  await page.route("https://raw.githubusercontent.com/**", r => r.fulfill({ status: 404 }));
+  await buscar(page, "食べる");
+  await page.getByRole("button", { name: /食/ }).first().click();
+  const hoja = page.locator("dialog.hoja-kanji[open]");
+  await expect(hoja.locator(".hoja-palabras")).toContainText("和食", { timeout: 15_000 });
 });
