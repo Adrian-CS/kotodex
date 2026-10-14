@@ -4,6 +4,7 @@ import { HistoryView } from "./components/HistoryView";
 import { DictionariesView } from "./components/DictionariesView";
 import { SettingsView } from "./components/SettingsView";
 import { SyncBanner } from "./components/SyncBanner";
+import { PendientesBanner } from "./components/PendientesBanner";
 import { loadSettings, saveSettings, type Settings } from "./settings";
 import { crearT, idiomaDelSistema, localeDe } from "./i18n";
 import { copiaAutomaticaSiToca } from "./copia";
@@ -72,6 +73,7 @@ export default function App() {
     <div className="app">
       <main className="view">
         <SyncBanner settings={settings} t={t} />
+        <PendientesBanner settings={settings} t={t} />
         {/* SearchView se mantiene montado para no perder la búsqueda al cambiar de pestaña */}
         <div hidden={tab !== "search"}>
           <SearchView

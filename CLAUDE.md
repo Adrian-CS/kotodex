@@ -109,6 +109,10 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   botones se calcula con la búsqueda sin filtrar y se conserva, o al filtrar desaparecerían.
 - Barra de pestañas: en pantallas táctiles se esconde mientras hay un campo de texto con foco (`useEscribiendoEnMovil`
   en App.tsx). Con el teclado abierto, iOS la subía encima del teclado y tapaba los resultados.
+- `src/pendientes.ts` + `components/PendientesBanner.tsx` — cola sin conexión: si `/notes` falla por CONEXIÓN
+  (`ServerError.status === 0`), la tarjeta se guarda ya armada en la tabla `pendientes` (Dexie v6, una por palabra) y
+  se manda sola al abrir, al volver a la app, con el evento `online` y cada minuto mientras quede alguna. Un error del
+  servidor (no de red) no se encola: reintentarlo no lo arreglaría. Duplicada al enviar = enviada.
 - `components/SyncBanner.tsx` — banda de aviso si `/health` dice que el último sync automático falló.
   Es el aviso que se ve siempre: el correo y ntfy hay que configurarlos.
 - Prioridad de diccionarios: `Dictionary.order` (flechas en Diccionarios). Decide el orden de los

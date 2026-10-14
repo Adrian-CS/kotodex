@@ -146,6 +146,7 @@ export function HistoryView({ onSearch, settings, setSettings, t, locale }: Prop
         <div className="varias-panel" role="status">
           <p className="hint">
             {t("batch.done", { added: resultado.añadidas, dupes: resultado.yaEstaban })}
+            {resultado.encoladas > 0 && t("batch.queued", { count: resultado.encoladas })}
             {resultado.syncEnSegundos != null && t("entry.syncIn", {
               when: resultado.syncEnSegundos < 90 ? `${resultado.syncEnSegundos} s` : `${Math.round(resultado.syncEnSegundos / 60)} min`,
             })}

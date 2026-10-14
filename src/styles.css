@@ -339,3 +339,5 @@ span.hoja-parte { border-style: dashed; }
 /* Hoja de la palabra tocada: las fichas de dentro, sin el margen de la lista de resultados. */
 .hoja-ficha-cabecera { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 .hoja-ficha .entry:first-of-type { margin-top: 0; }
+/* Tarjetas sin enviar: no es un error, se arregla sola al volver la conexión. Borde neutro. */
+.aviso-pendientes { border-color: var(--rule); }

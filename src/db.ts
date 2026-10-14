@@ -92,6 +92,21 @@ export interface Lookup {
   hits: number;
 }
 
+/**
+ * Una tarjeta que no se pudo mandar al servidor por falta de conexión. Se guarda ya armada (los
+ * campos tal cual irían) y src/pendientes.ts la manda en cuanto vuelve la conexión.
+ */
+export interface Pendiente {
+  id?: number;
+  key: string;          // entryKey(expression, reading)
+  expression: string;
+  fields: Record<string, string>;
+  deck: string;
+  at: number;
+  /** El último error que no fue de conexión (p. ej. falta el tipo de nota): se enseña en el aviso. */
+  error?: string;
+}
+
 class JpDictDB extends Dexie {
   dictionaries!: Table<Dictionary, number>;
   terms!: Table<Term, number>;
@@ -99,6 +114,7 @@ class JpDictDB extends Dexie {
   added!: Table<Added, string>;
   lookups!: Table<Lookup, string>;
   kanji!: Table<Kanji, number>;
+  pendientes!: Table<Pendiente, number>;
 
   constructor() {
     super("jp-dict");
@@ -127,6 +143,10 @@ class JpDictDB extends Dexie {
     // v5 añade los diccionarios de kanji. Tabla nueva: no toca nada de lo ya importado.
     this.version(5).stores({
       kanji: "++id, dict, character",
+    });
+    // v6: cola de tarjetas sin enviar (sin conexión con el servidor). Tabla nueva, nada que migrar.
+    this.version(6).stores({
+      pendientes: "++id, at",
     });
   }
 }

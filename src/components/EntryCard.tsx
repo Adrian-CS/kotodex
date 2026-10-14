@@ -6,6 +6,7 @@ import type { Settings } from "../settings";
 import { ankiMobileUrl, buildFields } from "../anki";
 import { addNote, audioUrl, ServerError, type WordCheck } from "../server";
 import { prepararAudio, reproducir } from "../reproductor";
+import { encolar, esFalloDeConexion } from "../pendientes";
 import { razonDeinflexion, type Idioma, type T } from "../i18n";
 import { esKanji } from "../kanji";
 import { palabraTocada } from "../tocarTexto";
@@ -74,6 +75,12 @@ export const EntryCard = memo(function EntryCard({ entry, settings, setSettings,
             : ""),
       });
     } catch (e) {
+      // Sin conexión con el servidor: se guarda y se manda sola cuando vuelva (src/pendientes.ts).
+      if (esFalloDeConexion(e)) {
+        await encolar(key, entry.expression, fields, deck);
+        setStatus({ kind: "done", text: t("entry.queued") });
+        return;
+      }
       const error = e as ServerError;
       setStatus({ kind: "error", message: error.message, duplicate: error.duplicate === true });
     }

@@ -120,3 +120,25 @@ test("«Añadir igualmente» sale con el error traducido (decide la clave, no el
   await page.getByRole("button", { name: "Añadir a Anki" }).first().click();
   await expect(page.getByRole("button", { name: "Añadir igualmente" })).toBeVisible();
 });
+
+test("sin conexión: la tarjeta se guarda y se manda sola al volver", async ({ page }) => {
+  const recibido = await servidorFalso(page);
+  // Encima del falso: mientras «caído», /notes falla como sin red (fetch lanza).
+  let caido = true;
+  await page.route(`${SERVIDOR}/notes`, route => (caido ? route.abort("internetdisconnected") : route.fallback()));
+  await abrirConDiccionarios(page);
+  await buscar(page, "橋");
+  await expect(page.locator(".entry-word").first()).toHaveText("橋");
+  await page.locator("input[type=search]").blur();
+  await page.getByRole("button", { name: "Añadir a Anki" }).first().click();
+  await expect(page.locator(".added-note").first()).toContainText("se enviará sola");
+  const aviso = page.locator(".aviso-pendientes");
+  await expect(aviso).toContainText("1 sin enviar a Anki");
+  await expect(aviso).toContainText("橋");
+  expect(recibido.notas).toHaveLength(0);
+
+  caido = false;
+  await aviso.getByRole("button", { name: "Reintentar ahora" }).click();
+  await expect(aviso).toHaveCount(0);
+  expect(recibido.notas.map(n => n.fields.Expression)).toEqual(["橋"]);
+});

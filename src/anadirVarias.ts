@@ -8,6 +8,7 @@ import { buildFields } from "./anki";
 import { db, entryKey, type Lookup } from "./db";
 import { search } from "./search";
 import { addNote, ServerError } from "./server";
+import { encolar, esFalloDeConexion } from "./pendientes";
 import type { Settings } from "./settings";
 
 export interface ResultadoVarias {
@@ -16,6 +17,8 @@ export interface ResultadoVarias {
   yaEstaban: number;
   /** Las que fallaron por otra cosa, con el motivo. */
   fallos: { palabra: string; motivo: string }[];
+  /** Sin conexión con el servidor: quedan en la cola y se mandan solas al volver (pendientes.ts). */
+  encoladas: number;
   /** El servidor sincroniza solo después: en cuántos segundos, según la última respuesta. */
   syncEnSegundos: number | null;
 }
@@ -26,23 +29,32 @@ export async function anadirVarias(
   deck: string,
   alAvanzar: (hechas: number) => void,
 ): Promise<ResultadoVarias> {
-  const r: ResultadoVarias = { añadidas: 0, yaEstaban: 0, fallos: [], syncEnSegundos: null };
+  const r: ResultadoVarias = { añadidas: 0, yaEstaban: 0, fallos: [], encoladas: 0, syncEnSegundos: null };
+  // Tras el primer fallo de conexión no se intenta el resto: se encola directamente.
+  let sinConexion = false;
   for (const [i, p] of palabras.entries()) {
     alAvanzar(i);
+    let campos: ReturnType<typeof buildFields> | null = null;
+    let clave = "";
     try {
       // La ficha de esa palabra exacta (expresión Y lectura): 箸 y 橋 comparten búsqueda.
       const fichas = await search(p.expression);
       const ficha = fichas.find(e => e.expression === p.expression && e.reading === p.reading) ?? fichas[0];
       if (!ficha) throw new Error("ya no está en los diccionarios activos");
-      const nota = await addNote(settings, buildFields(ficha), deck);
-      await db.added.put({ key: entryKey(ficha.expression, ficha.reading), deck, at: Date.now() });
+      campos = buildFields(ficha);
+      clave = entryKey(ficha.expression, ficha.reading);
+      if (sinConexion) throw new ServerError("sin conexión", 0);
+      const nota = await addNote(settings, campos, deck);
+      await db.added.put({ key: clave, deck, at: Date.now() });
       r.añadidas++;
       r.syncEnSegundos = nota.sync_in_seconds ?? null;
     } catch (e) {
-      if (e instanceof ServerError && e.duplicate) r.yaEstaban++;
+      if (esFalloDeConexion(e) && campos) {
+        sinConexion = true;
+        await encolar(clave, p.expression, campos, deck);
+        r.encoladas++;
+      } else if (e instanceof ServerError && e.duplicate) r.yaEstaban++;
       else r.fallos.push({ palabra: p.expression, motivo: e instanceof Error ? e.message : String(e) });
-      // Sin conexión con el servidor no tiene sentido seguir probando con el resto.
-      if (e instanceof ServerError && e.status === 0) break;
     }
   }
   alAvanzar(palabras.length);
