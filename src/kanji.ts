@@ -3,6 +3,7 @@
 
 import { db, type Dictionary, type Term } from "./db";
 import { segmentosGlosario } from "./glosses";
+import { anotarFrecuenciasActivas } from "./search";
 
 /** Kanji (CJK unificados y extensión A) y el símbolo de repetición 々 no cuenta: no tiene ficha. */
 export const esKanji = (c: string) => /[㐀-䶿一-鿿豈-﫿]/.test(c);
@@ -78,13 +79,14 @@ export async function fichaKanji(character: string): Promise<FichaKanji | null> 
 
 /** Cuántas filas se miran antes de ordenar: las que empiezan por el kanji, en orden de índice. */
 const MAX_FILAS_PALABRAS = 300;
+/** Cuántas candidatas reciben frecuencia (una consulta por palabra, en paralelo). */
+const MAX_CON_FRECUENCIA_KANJI = 200;
 
 /**
- * Palabras que EMPIEZAN por el kanji, las más frecuentes primero.
+ * Palabras con el kanji, las más frecuentes primero.
  *
- * Solo las que empiezan, no las que lo contienen: «contiene» obligaría a recorrer la tabla entera
- * (lentísimo en el iPhone) o a indexar cada kanji de cada término al importar, que exige
- * reimportar JMdict. Empezar por él es un rango del índice de expresiones y va directo.
+ * Las que lo contienen salen del índice de indiceKanji.ts; mientras no esté, solo las que empiezan
+ * por él, que es un rango del índice de expresiones y va directo.
  */
 export async function palabrasConKanji(character: string, max = 12): Promise<{ palabras: PalabraConKanji[]; contiene: boolean }> {
   const dicts = (await activos()).filter(d => d.role === "ja" || d.role === "es" || d.role === "en");
@@ -92,25 +94,36 @@ export async function palabrasConKanji(character: string, max = 12): Promise<{ p
   // Con el índice de indiceKanji.ts, las que lo CONTIENEN (和食, 夕食); si algún diccionario aún no
   // lo tiene (se está construyendo), las que empiezan por él, que es un rango del índice normal.
   const contiene = dicts.length > 0 && dicts.every(d => d.kanjiIndexado);
-  const candidatas = contiene
-    ? (await db.terms.bulkGet((await db.kanjiPalabras.bulkGet(dicts.map(d => [d.id!, character] as [number, string])))
-      .flatMap(f => f?.ids ?? []))).filter((t): t is Term => t !== undefined)
-    : await db.terms.where("expression").startsWith(character).limit(MAX_FILAS_PALABRAS).toArray();
-  const filas = candidatas.filter(t => orden.has(t.dict) && t.expression !== character);
+  // Las que empiezan por él van siempre (un rango del índice, rápido): así una palabra muy común
+  // que JMdict no marca como común (今日 para 今) no se queda fuera de las 150 del índice.
+  const [delIndice, empiezan] = await Promise.all([
+    contiene
+      ? db.kanjiPalabras.bulkGet(dicts.map(d => [d.id!, character] as [number, string]))
+        .then(filas => db.terms.bulkGet(filas.flatMap(f => f?.ids ?? [])))
+        .then(ts => ts.filter((t): t is Term => t !== undefined))
+      : Promise.resolve([] as Term[]),
+    db.terms.where("expression").startsWith(character).limit(MAX_FILAS_PALABRAS).toArray(),
+  ]);
+  const filas = [...delIndice, ...empiezan].filter(t => orden.has(t.dict) && t.expression !== character);
 
   // Una entrada por (palabra, lectura): la del diccionario con más prioridad da la definición.
-  const grupos = new Map<string, { t: Term; score: number }>();
+  type Grupo = { t: Term; expression: string; reading: string; score: number; frec: number };
+  const grupos = new Map<string, Grupo>();
   for (const t of filas) {
     const clave = `${t.expression}\u0000${t.reading}`;
     const previo = grupos.get(clave);
-    if (!previo) grupos.set(clave, { t, score: t.score });
+    if (!previo) grupos.set(clave, { t, expression: t.expression, reading: t.reading, score: t.score, frec: Infinity });
     else {
       previo.score = Math.max(previo.score, t.score);
       if (orden.get(t.dict)! < orden.get(previo.t.dict)!) previo.t = t;
     }
   }
+  // Orden: frecuencia (JPDB…) si hay diccionario de frecuencia, y si no el score de JMdict, que
+  // empata entre cientos de palabras comunes (飲食, 会食 y 食事 valen lo mismo).
+  const porScore = (a: Grupo, b: Grupo) => b.score - a.score || a.expression.length - b.expression.length;
+  await anotarFrecuenciasActivas([...grupos.values()], porScore, MAX_CON_FRECUENCIA_KANJI);
   const palabras = [...grupos.values()]
-    .sort((a, b) => b.score - a.score || a.t.expression.length - b.t.expression.length)
+    .sort((a, b) => a.frec - b.frec || porScore(a, b))
     .slice(0, max)
     .map(({ t }) => ({
       expression: t.expression,

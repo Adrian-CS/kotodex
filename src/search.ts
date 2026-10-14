@@ -484,11 +484,11 @@ function leerFrecuencia(data: unknown): { valor: number; texto: string; lectura?
  * pequeña) se iba detrás de palabras mucho más raras que sí estaban.
  */
 async function anotarFrecuencias<G extends { expression: string; reading: string; frec: number; frecTexto?: string; frecTitulo?: string }>(
-  grupos: G[], comparar: (a: G, b: G) => number, dicts: Dictionary[],
+  grupos: G[], comparar: (a: G, b: G) => number, dicts: Dictionary[], maximo = MAX_CON_FRECUENCIA,
 ): Promise<void> {
   const porPuesto = (d: Dictionary) => d.frequencyMode !== "occurrence-based";
   const usados = dicts.length > 1 && porPuesto(dicts[0]) && porPuesto(dicts[1]) ? dicts.slice(0, 2) : dicts.slice(0, 1);
-  const candidatos = grupos.length <= MAX_CON_FRECUENCIA ? grupos : [...grupos].sort(comparar).slice(0, MAX_CON_FRECUENCIA);
+  const candidatos = grupos.length <= maximo ? grupos : [...grupos].sort(comparar).slice(0, maximo);
   const ids = new Set(usados.map(d => d.id));
   const metas = (await porClaves(db.metas, "expression", [...new Set(candidatos.map(g => g.expression))]))
     .filter(m => ids.has(m.dict) && m.mode === "freq");
@@ -509,6 +509,19 @@ async function anotarFrecuencias<G extends { expression: string; reading: string
       if (Number.isFinite(g.frec)) break;
     }
   }
+}
+
+/**
+ * La misma frecuencia que en la búsqueda, para otras listas (las palabras de la ficha de kanji): con
+ * los diccionarios de frecuencia activos, por prioridad, y la reserva del segundo.
+ */
+export async function anotarFrecuenciasActivas<G extends { expression: string; reading: string; frec: number; frecTexto?: string; frecTitulo?: string }>(
+  grupos: G[], comparar: (a: G, b: G) => number, maximo: number,
+): Promise<void> {
+  const frecDicts = (await db.dictionaries.toArray())
+    .filter(d => d.enabled && d.role === "freq")
+    .sort((a, b) => (a.order ?? a.id!) - (b.order ?? b.id!));
+  if (frecDicts.length) await anotarFrecuencias(grupos, comparar, frecDicts, maximo);
 }
 
 /** Agrupa por (expresión, lectura), ordena, añade el pitch y arma las entradas finales. */

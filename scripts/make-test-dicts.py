@@ -63,6 +63,8 @@ mk("freq.zip", "Frecuencias (test)", metas=[
     ["端", "freq", {"reading": "はし", "frequency": {"value": 2500, "displayValue": "2500"}}],
     ["箸", "freq", 3000],
     ["今日", "freq", {"reading": "きょう", "frequency": 90}],
+    # En la ficha de 食, 和食 (con frecuencia) va antes que 食べる (sin ella), aunque tenga menos score.
+    ["和食", "freq", 50],
 ])
 # Lista de reserva: solo cuenta para lo que no trae freq.zip. 箸 está en las dos y manda la principal
 # (3000); 嘴 solo está aquí, así que con las dos importadas はし queda 橋, 端, 嘴, 箸.

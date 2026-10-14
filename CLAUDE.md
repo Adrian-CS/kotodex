@@ -157,7 +157,11 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   diccionario de kanji activo. «Palabras con 食» son las que lo CONTIENEN (和食, 夕食): `src/indiceKanji.ts`, tabla
   `kanjiPalabras` (Dexie v7, clave [dict+kanji]) con los ids de las 150 palabras de más score por kanji y diccionario.
   Se llena al importar y, para lo importado antes, una vez en segundo plano en el worker del importador (misma cola
-  y aviso; `Dictionary.kanjiIndexado`). Mientras falte, la ficha enseña las que EMPIEZAN por el kanji y cambia sola al acabar. El JLPT de KANJIDIC es el antiguo (1–4); el actual (N5–N1) sale de `src/jlpt.ts`,
+  y aviso; `Dictionary.kanjiIndexado`). Mientras falte, la ficha enseña las que EMPIEZAN por el kanji y cambia sola al acabar.
+  Orden: por el diccionario de frecuencia (`anotarFrecuenciasActivas` de search.ts, hasta 200 candidatas) y luego score:
+  el score de JMdict empata entre cientos de palabras ⭐ (飲食 = 会食 = 食事). Se suman siempre las que EMPIEZAN por el
+  kanji (rango del índice), por si una muy común queda fuera de las 150 (今日 no lleva ⭐ en jmdict-yomitan).
+  Medido con JMdict real en Chromium: indexar lo ya importado 10,7 s; abrir la ficha ~100 ms; importar, +0–10 %. El JLPT de KANJIDIC es el antiguo (1–4); el actual (N5–N1) sale de `src/jlpt.ts`,
   las listas de Waller (no hay oficiales desde 2010), y el antiguo solo se enseña si el kanji no está en ellas.
 - `src/trazos.ts` + `components/KanjiTrazos.tsx` — orden de trazos de KanjiVG (CC BY-SA): el SVG de cada kanji se
   pide a raw.githubusercontent.com (CORS abierto) al abrir su ficha y se guarda con la Cache API (`kanjivg-v1`), así

@@ -70,7 +70,8 @@ test("tocar 食 abre su ficha de kanji", async ({ page }) => {
   await expect(hoja.locator(".hoja-palabras")).toContainText("食べる");
   // Las que CONTIENEN el kanji, no solo las que empiezan por él.
   await expect(hoja.locator(".hoja-palabras")).toContainText("Palabras con 食");
-  await expect(hoja.locator(".hoja-palabras")).toContainText("和食");
+  // Ordenadas por frecuencia: 和食 (en la lista de frecuencia) antes que 食べる (que no está).
+  await expect(hoja.locator(".hoja-palabra-termino")).toHaveText(["和食", "食べる"]);
 });
 
 test("frase pegada: tocar una palabra la busca", async ({ page }) => {
