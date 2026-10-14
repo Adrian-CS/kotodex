@@ -191,7 +191,8 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   tarjeta (pack → fuentes HTTP → VOICEVOX, con su caché). `src/reproductor.ts`: un solo <audio> que se desbloquea
   reproduciendo 10 ms de silencio DENTRO del toque; iOS no deja sonar un play() que llega tras un await. Se espera a
   que acabe el silencio antes de cambiar la fuente (cortarlo da AbortError y podría no desbloquear).
-  Orden en el servidor: pack → caché → fuentes HTTP → VOICEVOX, cada fase medida y devuelta en `Server-Timing`;
+  Orden en el servidor: pack → caché → fuentes HTTP → Lingua Libre (`server/app/commons.py`, voces humanas de
+  Wikimedia Commons, CC BY-SA; solo por expresión) → VOICEVOX, cada fase medida y devuelta en `Server-Timing`;
   si el ▶ tarda más de 2 s, la ficha enseña el desglose (como la búsqueda lenta) y el servidor lo registra.
 - `server/app/autosync.py` + `notify.py` — sync 60 s después de añadir (`KOTODEX_SYNC_AFTER_ADD_SECONDS`; cada
   nota reinicia la cuenta, con tope de 5 min desde la primera; `/notes` devuelve `sync_in_seconds`) y cada X horas, en un hilo aparte; si falla, avisa por
@@ -254,7 +255,7 @@ test-dicts/ si falta y levanta Vite en el 5199). Sin red: KanjiVG se responde 40
 falso (`page.route`), así que se comprueba lo que la PWA MANDA, no Anki. Lo corre el CI (`ci.yml`) en cada push,
 junto con los tests del servidor; en main, si pasa, publica.
 
-Servidor: `cd server && ./venv/bin/python -m pytest tests -q` (63 casos, colección temporal). Para probarlo
+Servidor: `cd server && ./venv/bin/python -m pytest tests -q` (67 casos, colección temporal). Para probarlo
 junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173` y poner esa URL en Ajustes.
 
 ## Gotchas
@@ -290,7 +291,6 @@ junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173
   en iOS no compensa.
 
 ## Pendiente (por prioridad)
-1. **Terminar el despliegue**: `tailscale serve` en el portátil, app de Tailscale en el iPhone, y poner el origen
-   de Pages en `KOTODEX_CORS_ORIGINS` (la PWA ya se despliega sola con cada push a main, si pasan los tests). Para el audio, decidir fuente: el addon Forvo local
-   (exige Anki de escritorio abierto) o clave de la API de Forvo.
+1. Audio: el addon de Forvo ya no funciona; se usa Lingua Libre + VOICEVOX. Si algún día hay clave de la API de
+   Forvo, va en `KOTODEX_AUDIO_URLS` y tiene prioridad sin tocar código.
 2. Imágenes de structured-content (guardar blobs).

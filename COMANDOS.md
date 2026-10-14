@@ -202,6 +202,7 @@ Tras cualquier cambio: `.\deploy\windows\restart-kotodex.ps1`.
 | `KOTODEX_SYNC_AFTER_ADD_SECONDS` | Sync ese rato después de añadir una tarjeta (60 por defecto). 0 lo desactiva. |
 | `KOTODEX_SMTP_*` | Avisar por correo si el sync automático falla. |
 | `KOTODEX_NOTIFY_WEBHOOK` | Avisar por ntfy u otro webhook de texto plano. |
+| `KOTODEX_AUDIO_COMMONS` | Grabaciones humanas de Lingua Libre antes que VOICEVOX. Activo por defecto; `0` lo apaga. |
 | `KOTODEX_VOICEVOX_URL` / `_SPEAKER` | Síntesis de voz y qué estilo usar (ver tabla arriba). |
 | `KOTODEX_DUPES_EXCLUDE_DECKS` | Mazos que no cuentan al avisar de duplicados. |
 

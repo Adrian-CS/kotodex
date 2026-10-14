@@ -276,7 +276,12 @@ Cualquier `localhost` de estas URLs se cambia por `127.0.0.1`: en Windows, `loca
 tarda ~2 s por petición en rendirse. Cada audio deja una línea en el registro con lo que tardó cada fase
 (`audio 橋: 8.31 s (http 6.20 s, voicevox 2.11 s)`), y la misma información va en la cabecera `Server-Timing`.
 
-**3. VOICEVOX** (`KOTODEX_VOICEVOX_URL`), solo si las dos anteriores no tienen la palabra. Es
+**3. Lingua Libre** (Wikimedia Commons), activo por defecto (`KOTODEX_AUDIO_COMMONS=0` lo apaga): grabaciones
+de personas con licencia CC BY-SA, la misma fuente que ofrece Yomitan. Dos consultas a la API de Commons
+(buscar «LL-Q5287 (jpn)-…-palabra.wav» y pedir su URL) y la descarga, que va a la caché. Solo por la
+expresión, nunca por la lectura: はし podría traer 橋 al buscar 箸.
+
+**4. VOICEVOX** (`KOTODEX_VOICEVOX_URL`), solo si las anteriores no tienen la palabra. Es
 sintesis de voz local y gratuita. Dos detalles del port:
 
 - Se sintetiza la **lectura en kana**, no la expresion: asi no hay riesgo de que lea mal un kanji.

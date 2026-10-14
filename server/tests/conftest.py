@@ -33,6 +33,8 @@ os.environ.update(
     KOTODEX_AUDIO_DIRS=str(AUDIO_DIR),
     KOTODEX_DEFAULT_DECK="日本語",
     KOTODEX_CORS_ORIGINS="https://kotodex.pages.dev",
+    # Los tests no salen a internet: Commons se prueba aparte, contra un servidor falso.
+    KOTODEX_AUDIO_COMMONS="0",
 )
 
 

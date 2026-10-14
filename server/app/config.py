@@ -38,6 +38,7 @@ class Settings:
     audio_timeout: float
     voicevox_url: str
     voicevox_speaker: int
+    audio_commons: bool
     ankiweb_username: str
     ankiweb_password: str
     ankiweb_endpoint: str | None
@@ -59,7 +60,7 @@ class Settings:
 
     @property
     def has_audio(self) -> bool:
-        return bool(self.audio_dirs or self.audio_urls or self.voicevox_url)
+        return bool(self.audio_dirs or self.audio_urls or self.audio_commons or self.voicevox_url)
 
 
 def sin_localhost(url: str) -> str:
@@ -97,6 +98,8 @@ def load_settings() -> Settings:
         audio_timeout=float(_env("KOTODEX_AUDIO_TIMEOUT", "10") or 10),
         voicevox_url=sin_localhost(_env("KOTODEX_VOICEVOX_URL")),
         voicevox_speaker=int(_env("KOTODEX_VOICEVOX_SPEAKER", "1") or 1),
+        # Grabaciones de Lingua Libre (Wikimedia Commons). Activo por defecto; 0 lo apaga.
+        audio_commons=_env("KOTODEX_AUDIO_COMMONS", "1").strip().lower() not in ("0", "false", "no", ""),
         ankiweb_username=_env("ANKIWEB_USERNAME"),
         ankiweb_password=_env("ANKIWEB_PASSWORD"),
         ankiweb_endpoint=_env("ANKIWEB_ENDPOINT") or None,

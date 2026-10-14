@@ -23,6 +23,7 @@ from anki.notes import NoteFieldsCheckResult
 from anki.sync_pb2 import SyncAuth, SyncCollectionResponse
 
 from .audio import DEFAULT_PATTERNS, cached_audio, fetch_audio, find_audio, guardar_en_cache
+from .commons import buscar_commons
 from .config import Settings
 from .voicevox import synthesize
 
@@ -307,8 +308,8 @@ class AnkiService:
 
     def _resolve_audio(self, values: dict[str, str], fases: list[tuple[str, float]] | None = None) -> Path | None:
         """
-        Por orden: pack local (instantáneo), fuentes HTTP (con caché) y, como último recurso,
-        síntesis con VOICEVOX. Voz humana antes que sintética siempre que se pueda.
+        Por orden: pack local (instantáneo), caché, fuentes HTTP, grabaciones de Lingua Libre
+        (Wikimedia Commons) y, como último recurso, síntesis con VOICEVOX. Voz humana antes que sintética siempre que se pueda.
         """
         s = self.settings
         expression = values.get("Expression", "")
@@ -328,6 +329,9 @@ class AnkiService:
             medir("pack", lambda: find_audio(s.audio_dirs, s.audio_patterns or DEFAULT_PATTERNS, expression, reading))
             or medir("cache", lambda: cached_audio(s.audio_cache, expression, reading))
             or medir("http", lambda: fetch_audio(s.audio_urls, s.audio_cache, expression, reading, s.audio_timeout))
+            # Voz humana de Lingua Libre antes que la sintética.
+            or (s.audio_commons and medir("commons", lambda: buscar_commons(expression, reading, s.audio_cache, s.audio_timeout)))
+            or None
         )
         if encontrado or not s.voicevox_url:
             return encontrado
