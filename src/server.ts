@@ -55,14 +55,28 @@ function pedir(s: Settings, path: string, body?: unknown): Promise<Response> {
   return pedirConMetodo(s, body === undefined ? "GET" : "POST", path, body);
 }
 
+/**
+ * Cuánto se espera a cada petición antes de darla por perdida. Sin esto, con el portátil dormido o
+ * Tailscale caído, iOS puede tardar minutos en rendirse y «Añadir a Anki» se quedaba girando. Las
+ * que hacen trabajo de verdad (buscar el audio, sincronizar) tienen más margen.
+ */
+const PLAZOS_MS: Record<string, number> = { "/notes": 45_000, "/audio": 45_000, "/sync": 90_000 };
+const PLAZO_MS = 15_000;
+
 async function pedirConMetodo(s: Settings, method: string, path: string, body?: unknown): Promise<Response> {
   const url = baseUrl(s);
   if (!url) throw new ServerError("Falta la dirección del servidor en Ajustes.", 0);
 
+  const plazo = PLAZOS_MS[path] ?? PLAZO_MS;
+  // Un AbortController a mano y no AbortSignal.timeout: cubre también iOS antiguos. Corta además la
+  // lectura del cuerpo (blob/json), que sigue usando la misma señal.
+  const control = new AbortController();
+  const reloj = setTimeout(() => control.abort(), plazo);
   let response: Response;
   try {
     response = await fetch(url + path, {
       method,
+      signal: control.signal,
       headers: {
         Authorization: `Bearer ${s.serverToken}`,
         // Para que los errores del servidor lleguen en el idioma de la interfaz.
@@ -72,12 +86,19 @@ async function pedirConMetodo(s: Settings, method: string, path: string, body?: 
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
+    clearTimeout(reloj);
+    // status 0 = sin conexión: las tarjetas se encolan y se mandan solas después (pendientes.ts).
     throw new ServerError(
-      "No se pudo conectar con el servidor. Comprueba la dirección, que el túnel esté levantado " +
-        "y que el origen de esta app esté en KOTODEX_CORS_ORIGINS.",
+      control.signal.aborted
+        ? `El servidor no ha respondido en ${plazo / 1000} s. ¿Está encendido el portátil, con el servidor ` +
+          "en marcha, y Tailscale conectado en el iPhone?"
+        : "No se pudo conectar con el servidor. Comprueba la dirección, que el túnel esté levantado " +
+          "y que el origen de esta app esté en KOTODEX_CORS_ORIGINS.",
       0,
     );
   }
+  // El reloj se deja correr: también vigila la lectura del cuerpo (blob/json), y abortar una
+  // respuesta ya leída no hace nada.
 
   if (!response.ok) {
     const datos = await response.json().catch(() => null);

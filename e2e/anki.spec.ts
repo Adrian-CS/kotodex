@@ -158,3 +158,20 @@ test("quitar una sección en Ajustes la deja fuera de la tarjeta, no de la app",
   expect(recibido.notas[0].fields.DefEN).toBe("");
   expect(recibido.notas[0].fields.DefES).toContain("puente");
 });
+
+test("si el servidor no contesta, «Añadir» no se queda girando: avisa y la encola", async ({ page }) => {
+  await page.clock.install();
+  const recibido = await servidorFalso(page);
+  // El portátil dormido: la petición llega pero nunca hay respuesta.
+  await page.route(`${SERVIDOR}/notes`, () => { /* sin respuesta */ });
+  await abrirConDiccionarios(page);
+  await buscar(page, "橋");
+  await expect(page.locator(".entry-word").first()).toHaveText("橋");
+  await page.locator("input[type=search]").blur();
+  await page.getByRole("button", { name: "Añadir a Anki" }).first().click();
+  await expect(page.getByRole("button", { name: "Añadiendo…" })).toBeVisible();
+  await page.clock.fastForward(46_000);
+  await expect(page.locator(".added-note").first()).toContainText("se enviará sola");
+  await expect(page.locator(".aviso-pendientes")).toContainText("橋");
+  expect(recibido.notas).toHaveLength(0);
+});

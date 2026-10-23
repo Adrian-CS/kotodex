@@ -197,7 +197,9 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
 - `src/settings.ts` — mazos, último mazo, tipo de nota, perfil, etiquetas, modo (`ankimobile`|`server`),
   URL y token del servidor (localStorage, PWA propia).
 - `src/server.ts` — cliente del servidor: health, decks, notetype/ensure, notes, sync, audio, copia. Los errores de la API se
-  enseñan tal cual en la UI.
+  enseñan tal cual en la UI. Toda petición tiene plazo (`PLAZOS_MS`: 15 s; /notes y /audio 45 s; /sync 90 s): sin él, con
+  el portátil dormido «Añadir» se quedaba girando minutos. Agotado el plazo cuenta como sin conexión (status 0) y la
+  tarjeta va a la cola; si el servidor sí la había añadido, al reenviarla sale duplicada, que cuenta como enviada.
 - Escuchar antes de añadir (▶ en cada ficha, solo en modo servidor): `POST /audio` devuelve el MISMO audio que irá a la
   tarjeta (pack → fuentes HTTP → VOICEVOX, con su caché). `src/reproductor.ts`: un solo <audio> que se desbloquea
   reproduciendo 10 ms de silencio DENTRO del toque; iOS no deja sonar un play() que llega tras un await. Se espera a
