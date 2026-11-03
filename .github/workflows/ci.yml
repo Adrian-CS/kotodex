@@ -14,7 +14,9 @@ permissions:
 jobs:
   pwa:
     name: PWA
-    runs-on: ubuntu-latest
+    # Fijado: ubuntu-latest pasó a 26.04 y Playwright 1.56 no instala Chromium ahí. Al subir
+    # Playwright a una versión que lo soporte, se puede volver a ubuntu-latest.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -57,7 +59,7 @@ jobs:
 
   servidor:
     name: Servidor
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -77,7 +79,7 @@ jobs:
     name: Publicar
     needs: pwa
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Un despliegue a la vez; si llegan dos pushes seguidos, el segundo espera al primero.
     concurrency:
       group: pages
