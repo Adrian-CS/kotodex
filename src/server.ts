@@ -16,7 +16,17 @@ export interface ServerHealth {
     proximo_en_minutos: number | null;
     /** Empieza por "error" si la última sincronización automática falló. */
     ultimo_resultado: string;
+    /** La clave del último error (p. ej. "sync_completo"); null si fue bien. */
+    ultimo_codigo?: string | null;
   };
+}
+
+export interface DescargaCompleta {
+  /** Notas que el servidor tenía sin subir y se han vuelto a añadir tras la descarga. */
+  recuperadas: number;
+  ya_estaban: number;
+  /** Carpeta del servidor con la copia de la colección de antes de descargar. */
+  copia: string;
 }
 
 export interface AddedNote {
@@ -42,7 +52,8 @@ export interface SyncResult {
 
 /** Error del servidor con el texto que mandó la API; `duplicate` distingue el 409 de nota repetida. */
 export class ServerError extends Error {
-  constructor(message: string, readonly status: number, readonly duplicate = false) {
+  /** @param code La clave del error del servidor, sin traducir («sync_completo», «duplicada»…). */
+  constructor(message: string, readonly status: number, readonly duplicate = false, readonly code?: string) {
     super(message);
     this.name = "ServerError";
   }
@@ -60,7 +71,11 @@ function pedir(s: Settings, path: string, body?: unknown): Promise<Response> {
  * Tailscale caído, iOS puede tardar minutos en rendirse y «Añadir a Anki» se quedaba girando. Las
  * que hacen trabajo de verdad (buscar el audio, sincronizar) tienen más margen.
  */
-const PLAZOS_MS: Record<string, number> = { "/notes": 45_000, "/audio": 45_000, "/sync": 90_000 };
+const PLAZOS_MS: Record<string, number> = {
+  "/notes": 45_000, "/audio": 45_000, "/sync": 90_000,
+  // Descargar la colección entera de AnkiWeb (decenas de MB) tarda.
+  "/sync/full-download": 600_000,
+};
 const PLAZO_MS = 15_000;
 
 async function pedirConMetodo(s: Settings, method: string, path: string, body?: unknown): Promise<Response> {
@@ -110,6 +125,7 @@ async function pedirConMetodo(s: Settings, method: string, path: string, body?: 
       // Por la clave, no por el texto: el texto llega traducido al idioma de la interfaz. El
       // texto solo cuenta con un servidor anterior a la clave.
       datos?.code === "duplicada" || (response.status === 409 && typeof detail === "string" && detail.includes("ya está en la colección")),
+      typeof datos?.code === "string" ? datos.code : undefined,
     );
   }
   return response;
@@ -179,6 +195,10 @@ export const ensureNotetype = (s: Settings) =>
 
 // wait_media: false — la media sigue subiendo en segundo plano. Con una colección grande,
 // esperarla deja el botón de Ajustes colgado varios minutos sin decir nada.
+/** Resuelve «AnkiWeb pide sincronización completa» descargando y conservando lo no subido. */
+export const descargaCompleta = (s: Settings) =>
+  call<DescargaCompleta>(s, "/sync/full-download", { confirmar: true });
+
 export const sync = (s: Settings) => call<SyncResult>(s, "/sync", { wait_media: false });
 
 export interface WordCheck {

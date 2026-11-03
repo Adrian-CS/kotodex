@@ -150,6 +150,7 @@ async def health() -> dict:
                 round(autosync.proximo_en_segundos / 60) if autosync.proximo_en_segundos is not None else None
             ),
             "ultimo_resultado": autosync.ultimo_resultado,
+            "ultimo_codigo": autosync.ultimo_codigo,
         },
     }
 
@@ -236,6 +237,26 @@ async def ultima_copia() -> dict:
 @app.post("/sync", dependencies=[Auth])
 async def sync(body: SyncRequest | None = None) -> dict:
     body = body or SyncRequest()
-    return await run_in_threadpool(
+    salida = await run_in_threadpool(
         service.sync, wait_media=body.wait_media, media_timeout=body.media_timeout
     )
+    autosync.marcar_ok(salida["required"])
+    return salida
+
+
+class DescargaRequest(BaseModel):
+    # Que no se dispare por error: la PWA lo manda solo tras confirmar el usuario.
+    confirmar: bool = False
+
+
+@app.post("/sync/full-download", dependencies=[Auth])
+async def descarga_completa(body: DescargaRequest) -> dict:
+    """
+    Resuelve «AnkiWeb pide sincronización completa» descargando la colección de AnkiWeb y volviendo
+    a añadir las notas que este servidor aún no había subido (ver AnkiService.descargar_conservando).
+    """
+    if not body.confirmar:
+        raise ServiceError("falta_confirmar")
+    salida = await run_in_threadpool(service.descargar_conservando)
+    autosync.marcar_ok(salida["required"])
+    return salida

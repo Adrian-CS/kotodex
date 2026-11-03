@@ -412,7 +412,13 @@ class AnkiService:
 
             required = _CHANGES.Name(out.required)
             if out.required in _FULL:
-                # Un full sync pisa una de las dos colecciones entera: eso se decide a mano.
+                # Un full sync pisa una de las dos colecciones entera: eso se decide a mano (ver
+                # descargar_conservando). El registro dice de qué lado vino el cambio de esquema.
+                local = self.col.schema_changed()
+                log.warning(
+                    "AnkiWeb pide sincronización completa (%s). Cambio de esquema %s.", required,
+                    "EN ESTE SERVIDOR (scm > ls)" if local else "en AnkiWeb u otro dispositivo, no aquí",
+                )
                 raise ServiceError("sync_completo", 409, estado=required)
 
             media = self._wait_media(media_timeout) if wait_media else "en curso"
@@ -421,6 +427,106 @@ class AnkiService:
                 "server_message": out.server_message,
                 "media": media,
             }
+
+    # ---- sincronización completa ---------------------------------------
+
+    def descargar_conservando(self) -> dict:
+        """
+        Resuelve un «hace falta sincronización completa» descargando de AnkiWeb, sin perder lo que el
+        servidor aún no había subido.
+
+        El escritorio y AnkiMobile tienen la colección buena (el servidor solo añade tarjetas), así
+        que la dirección correcta es siempre DESCARGAR. Pero una descarga a secas borraría las notas
+        creadas aquí desde el último sync que funcionó: se guardan antes (usn = -1 = sin subir), se
+        hace una copia de seguridad de la colección, se descarga y se vuelven a añadir. Luego un sync
+        normal las sube.
+        """
+        with self._lock:
+            auth = self._sync_auth()
+            try:
+                out = self.col.sync_collection(auth, False)
+            except Exception as e:
+                self._auth = None
+                raise ServiceError("sync_fallido", 502, error=str(e)) from e
+            if out.new_endpoint:
+                auth = self._auth = SyncAuth(hkey=auth.hkey, endpoint=out.new_endpoint)
+            if out.required not in _FULL:
+                raise ServiceError("no_hace_falta_completo", 409)
+
+            pendientes = self._notas_sin_subir()
+            copias = self.settings.collection_path.parent / "backups"
+            copias.mkdir(parents=True, exist_ok=True)
+            self.col.create_backup(backup_folder=str(copias), force=True, wait_for_completion=True)
+            log.warning("Descarga completa desde AnkiWeb: %d notas sin subir guardadas; copia en %s.",
+                        len(pendientes), copias)
+
+            self._descarga_completa(auth, out.server_media_usn)
+            recuperadas, ya_estaban = self._volver_a_anadir(pendientes)
+            log.warning("Descarga completa hecha: %d notas recuperadas, %d ya estaban.", recuperadas, ya_estaban)
+
+        # Fuera del lock (sync() lo coge): sube las recuperadas.
+        subida = self.sync(wait_media=False) if recuperadas else None
+        return {
+            "recuperadas": recuperadas,
+            "ya_estaban": ya_estaban,
+            "copia": str(copias),
+            "required": subida["required"] if subida else "NO_CHANGES",
+        }
+
+    def _notas_sin_subir(self) -> list[dict]:
+        """Las notas que este servidor tiene y AnkiWeb no: creadas (o tocadas) desde el último sync."""
+        pendientes = []
+        for nid in self.col.db.list("select id from notes where usn = -1"):
+            nota = self.col.get_note(nid)
+            tarjetas = nota.cards()
+            pendientes.append({
+                "tipo": nota.note_type()["name"],
+                "campos": dict(nota.items()),
+                "etiquetas": list(nota.tags),
+                "mazo": self.col.decks.name(tarjetas[0].did) if tarjetas else self.settings.default_deck,
+            })
+        return pendientes
+
+    def _descarga_completa(self, auth: SyncAuth, server_usn: int | None) -> None:
+        # Como en Anki de escritorio: el backend cierra y reabre la colección por su cuenta.
+        self.col.close_for_full_sync()
+        try:
+            try:
+                self.col.full_upload_or_download(auth=auth, server_usn=None, upload=False)
+            except Exception:
+                # Algunas cuentas solo la aceptan con el media usn del servidor (ver first-sync.py).
+                self.col.full_upload_or_download(auth=auth, server_usn=server_usn, upload=False)
+        except Exception as e:
+            raise ServiceError("descarga_fallida", 502, error=str(e)) from e
+        finally:
+            self.col.reopen(after_full_sync=True)
+
+    def _volver_a_anadir(self, pendientes: list[dict]) -> tuple[int, int]:
+        # Dos pasadas: primero se mira qué ya trae AnkiWeb, y luego se añade. Así una nota duplicada
+        # a propósito aquí («Añadir igualmente») no se descarta por chocar con su propia copia.
+        preparadas = []
+        ya_estaban = 0
+        for p in pendientes:
+            tipo = self.col.models.by_name(p["tipo"])
+            if tipo is None and p["tipo"] == NOTETYPE_FRASE:
+                self._ensure_one(NOTETYPE_FRASE, FIELDS_FRASE, *self._templates_frase(), force=False)
+                tipo = self.col.models.by_name(p["tipo"])
+            if tipo is None:
+                log.warning("No se recupera una nota de «%s»: ese tipo de nota ya no existe.", p["tipo"])
+                continue
+            nota = self.col.new_note(tipo)
+            for nombre, valor in p["campos"].items():
+                if nombre in nota:
+                    nota[nombre] = valor
+            nota.tags = p["etiquetas"]
+            # Una nota que ya está en AnkiWeb (tocada aquí, no nueva) no se repite.
+            if nota.fields_check() == NoteFieldsCheckResult.DUPLICATE:
+                ya_estaban += 1
+                continue
+            preparadas.append((nota, p["mazo"]))
+        for nota, mazo in preparadas:
+            self.col.add_note(nota, self.col.decks.id(mazo))
+        return len(preparadas), ya_estaban
 
     def _wait_media(self, timeout: float) -> str:
         deadline = time.monotonic() + timeout

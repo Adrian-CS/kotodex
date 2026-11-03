@@ -89,7 +89,7 @@ def test_409_avisa_con_instrucciones(webhook, tmp_path):
     aviso = recibidos[0]
     assert "kotodex" in aviso
     # El aviso tiene que decir qué hacer, no solo qué ha pasado.
-    assert "clone-desktop-collection.ps1" in aviso
+    assert "Descargar de\n  AnkiWeb" in aviso or "Descargar de AnkiWeb" in aviso
     assert "FULL_SYNC" in aviso
     assert "sigue creando tarjetas" in aviso
 

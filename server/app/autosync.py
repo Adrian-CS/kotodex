@@ -35,13 +35,15 @@ Qué ha pasado:
   {error}
 
 Qué hacer:
-  1. Abre Anki en el ordenador y sincroniza. Te preguntará en qué dirección
-     (subir o bajar); elige la que tenga lo bueno.
+  Si pide sincronización COMPLETA: casi siempre es la copia del servidor la que se
+  desajustó, no la del ordenador ni la del móvil. Abre kotodex y pulsa «Descargar de
+  AnkiWeb» en el aviso: trae la colección de AnkiWeb y vuelve a añadir las tarjetas que
+  el servidor aún no había subido (antes guarda una copia en data/backups).
+
+  Si es otro error:
+  1. Abre Anki en el ordenador y sincroniza.
   2. Sincroniza también AnkiMobile en el iPhone.
-  3. Para el servidor kotodex y clona otra vez la colección de escritorio:
-       cd C:\\dev\\kotodex\\server
-       .\\deploy\\windows\\clone-desktop-collection.ps1
-  4. Arranca el servidor. Vuelve a sincronizar solo.
+  3. Vuelve a intentarlo desde el aviso de kotodex.
 
 Mientras tanto la PWA sigue creando tarjetas: se quedan en la colección del
 servidor y subirán cuando esto se arregle.
@@ -61,6 +63,8 @@ class AutoSync:
         self._hilo: threading.Thread | None = None
         self._estado = Path(settings.collection_path).parent / "autosync.json"
         self.ultimo_resultado: str = "todavía no se ha ejecutado"
+        # La clave del último error (p. ej. «sync_completo»): la PWA decide con ella qué botón enseñar.
+        self.ultimo_codigo: str | None = None
 
     # ---- marca en disco -------------------------------------------------
 
@@ -132,6 +136,12 @@ class AutoSync:
         log.info("Sincronización en %.0f s (nota añadida).", restante)
         return restante
 
+    def marcar_ok(self, required: str) -> None:
+        """Un sync hecho a mano que funcionó: el aviso de la PWA deja de salir."""
+        self.ultimo_resultado = f"ok ({required})"
+        self.ultimo_codigo = None
+        self._escribir_marca(time.time())
+
     @property
     def proximo_en_segundos(self) -> float | None:
         candidatos = []
@@ -166,10 +176,12 @@ class AutoSync:
             # el lock de la colección cogido mientras suben ficheros.
             salida = self.service.sync(wait_media=False)
             self.ultimo_resultado = f"ok ({salida['required']})"
+            self.ultimo_codigo = None
             log.info("Sincronización automática: %s", self.ultimo_resultado)
             self._escribir_marca(time.time())
         except ServiceError as e:
             self.ultimo_resultado = f"error: {e}"
+            self.ultimo_codigo = e.clave
             log.error("Sincronización automática fallida: %s", e)
             # Reintentar en una hora en vez de machacar cada 5 minutos.
             self._escribir_marca(time.time() - max(0, (self.settings.sync_every_hours - 1) * 3600))

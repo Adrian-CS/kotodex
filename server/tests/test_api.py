@@ -285,3 +285,64 @@ def test_sin_tipo_con_frase_se_crea_al_añadir(client):
     r = client.post("/notes", json={"fields": frase, "deck": "日本語"})
     assert r.status_code == 200, r.text
     assert service.col.get_note(r.json()["note_id"]).note_type()["name"] == "JP Dict + frase"
+
+
+class _RespuestaSync:
+    """Lo que devolvería AnkiWeb: pide sincronización completa."""
+
+    def __init__(self, required):
+        self.required = required
+        self.new_endpoint = ""
+        self.server_media_usn = 0
+        self.server_message = ""
+
+
+def test_descarga_completa_conserva_las_notas_sin_subir(client, monkeypatch):
+    from anki.sync_pb2 import SyncAuth, SyncCollectionResponse
+
+    from app.main import service
+
+    completo = SyncCollectionResponse.ChangesRequired.FULL_SYNC
+    client.post("/notetype/ensure", json={})
+    r = client.post("/notes", json={"fields": {**WORD, "Expression": "雨", "Reading": "あめ"}, "deck": "日本語::雨"})
+    assert r.status_code == 200, r.text
+    antes = service.col.note_count()
+
+    monkeypatch.setattr(service, "_sync_auth", lambda: SyncAuth(hkey="x"))
+    llamadas = []
+
+    def sync_falso(auth, media):
+        llamadas.append(media)
+        # La primera vez (comprobar) pide completa; después de descargar ya va normal.
+        return _RespuestaSync(completo if len(llamadas) == 1 else SyncCollectionResponse.ChangesRequired.NO_CHANGES)
+
+    monkeypatch.setattr(service.col, "sync_collection", sync_falso)
+
+    def descarga_falsa(auth, usn):
+        # AnkiWeb no tiene nada de lo creado aquí: la descarga lo borraría todo.
+        service.col.remove_notes(service.col.find_notes(""))
+
+    monkeypatch.setattr(service, "_descarga_completa", descarga_falsa)
+
+    assert client.post("/sync/full-download", json={}).status_code == 400   # sin confirmar, nada
+    r = client.post("/sync/full-download", json={"confirmar": True})
+    assert r.status_code == 200, r.text
+    assert r.json()["recuperadas"] == antes
+    assert service.col.note_count() == antes
+    nid = service.col.find_notes('"Expression:雨"')[0]
+    assert service.col.decks.name(service.col.get_note(nid).cards()[0].did) == "日本語::雨"
+    assert client.get("/health").json()["autosync"]["ultimo_codigo"] is None
+
+
+def test_descarga_completa_si_no_hace_falta_no_toca_nada(client, monkeypatch):
+    from anki.sync_pb2 import SyncAuth, SyncCollectionResponse
+
+    from app.main import service
+
+    monkeypatch.setattr(service, "_sync_auth", lambda: SyncAuth(hkey="x"))
+    monkeypatch.setattr(service.col, "sync_collection",
+                        lambda auth, media: _RespuestaSync(SyncCollectionResponse.ChangesRequired.NORMAL_SYNC))
+    monkeypatch.setattr(service, "_descarga_completa", lambda *a: (_ for _ in ()).throw(AssertionError("no")))
+    r = client.post("/sync/full-download", json={"confirmar": True})
+    assert r.status_code == 409
+    assert r.json()["code"] == "no_hace_falta_completo"

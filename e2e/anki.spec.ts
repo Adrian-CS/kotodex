@@ -175,3 +175,24 @@ test("si el servidor no contesta, «Añadir» no se queda girando: avisa y la en
   await expect(page.locator(".aviso-pendientes")).toContainText("橋");
   expect(recibido.notas).toHaveLength(0);
 });
+
+test("«AnkiWeb pide sincronización completa»: el aviso ofrece descargar y conservar lo no subido", async ({ page }) => {
+  await servidorFalso(page);
+  let descargas = 0;
+  await page.route(`${SERVIDOR}/health`, r => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+    status: "ok", notetype: "JP Dict", sync: true,
+    autosync: { ultimo_resultado: "error: AnkiWeb pide una sincronización completa (FULL_SYNC)", ultimo_codigo: "sync_completo" },
+  }) }));
+  await page.route(`${SERVIDOR}/sync/full-download`, r => {
+    descargas++;
+    expect(r.request().postDataJSON()).toEqual({ confirmar: true });
+    return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ recuperadas: 3, ya_estaban: 0, copia: "data/backups", required: "NO_CHANGES" }) });
+  });
+  page.on("dialog", d => d.accept());
+  await page.goto("/");
+  const aviso = page.locator(".aviso-sync").first();
+  await expect(aviso).toContainText("la copia del servidor");
+  await aviso.getByRole("button", { name: "Descargar de AnkiWeb" }).click();
+  await expect(page.getByText("Tarjetas recuperadas y subidas: 3")).toBeVisible();
+  expect(descargas).toBe(1);
+});

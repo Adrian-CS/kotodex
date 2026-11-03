@@ -118,12 +118,30 @@ MENSAJES: dict[str, dict[str, str]] = {
         "ja": "AnkiWeb との同期に失敗しました: {error}",
     },
     "sync_completo": {
-        "es": "AnkiWeb pide una sincronización completa ({estado}). No se hace desde aquí: "
-              "resuélvela en el ordenador o en AnkiMobile y vuelve a intentarlo.",
-        "en": "AnkiWeb is asking for a full sync ({estado}). That is not done from here: "
-              "resolve it on your computer or in AnkiMobile and try again.",
-        "ja": "AnkiWeb が完全同期を求めています（{estado}）。ここからは実行しません。"
-              "パソコンか AnkiMobile で解決してから、もう一度お試しください。",
+        "es": "AnkiWeb pide una sincronización completa ({estado}) para la colección de este servidor, "
+              "no la del ordenador ni la del móvil. «Descargar de AnkiWeb» la resuelve sin perder las "
+              "tarjetas que el servidor aún no había subido.",
+        "en": "AnkiWeb is asking for a full sync ({estado}) for this server's own collection, not the one "
+              "on your computer or phone. “Download from AnkiWeb” fixes it without losing the cards the "
+              "server hadn't uploaded yet.",
+        "ja": "AnkiWeb がこのサーバーのコレクションに完全同期を求めています（{estado}）。パソコンや"
+              "スマホのものではありません。「AnkiWeb からダウンロード」で、未アップロードのカードを"
+              "失わずに解決できます。",
+    },
+    "falta_confirmar": {
+        "es": "Falta confirmar la descarga completa.",
+        "en": "The full download has not been confirmed.",
+        "ja": "完全ダウンロードが確認されていません。",
+    },
+    "no_hace_falta_completo": {
+        "es": "AnkiWeb ya no pide sincronización completa: no se ha tocado nada. Sincroniza normal.",
+        "en": "AnkiWeb no longer asks for a full sync: nothing was changed. Sync normally.",
+        "ja": "AnkiWeb はもう完全同期を求めていません。何も変更していません。通常どおり同期してください。",
+    },
+    "descarga_fallida": {
+        "es": "La descarga desde AnkiWeb falló: {error}. Hay una copia de la colección en data/backups.",
+        "en": "The download from AnkiWeb failed: {error}. There is a backup of the collection in data/backups.",
+        "ja": "AnkiWeb からのダウンロードに失敗しました: {error}。data/backups にコレクションのバックアップがあります。",
     },
     "token_invalido": {
         "es": "Token inválido o ausente.",

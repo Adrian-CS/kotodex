@@ -18,6 +18,7 @@ la app y no depende de la longitud de la URL.
 | POST | `/audio` | El audio de una palabra (`expression`, `reading`, `pitchnum`), para escucharlo antes de añadirla. Misma resolución y caché que `/notes`; 404 si no hay. |
 | PUT | `/copia` | Guarda una copia de seguridad de la PWA (JSON, máx. 5 MB) en `data/copias/`; se conservan las 30 últimas. |
 | GET | `/copia` | La copia más reciente; 404 si no hay ninguna. |
+| POST | `/sync/full-download` | Resuelve «hace falta sincronización completa» descargando de AnkiWeb y conservando las notas sin subir. Pide `{"confirmar": true}`. |
 | POST | `/sync` | Sincroniza con AnkiWeb. |
 
 Todos menos `/health` piden `Authorization: Bearer $KOTODEX_TOKEN`.
@@ -240,6 +241,13 @@ reinicia la cuenta. El estado sale en `/health`.
 las colecciones divergen, pero **no evita los 409 de «hace falta sincronización completa»**: eso lo
 provoca un cambio de esquema en cualquier dispositivo (tocar los campos de un tipo de nota, un
 «Check Database», restaurar una copia), no la cantidad de cambios acumulados.
+
+**Si pide sincronización completa**, es la colección del servidor (el tercer dispositivo) la que se
+desajustó: el escritorio y AnkiMobile no ven nada. `POST /sync/full-download` con `{"confirmar": true}`
+(el botón «Descargar de AnkiWeb» del aviso de la PWA) lo resuelve: guarda las notas sin subir
+(`usn = -1`), hace copia en `data/backups`, descarga la colección de AnkiWeb, vuelve a añadirlas (las
+que ya estén en AnkiWeb no se repiten) y sincroniza para subirlas. El registro dice además de qué lado
+vino el cambio de esquema (`scm > ls`: este servidor; si no, AnkiWeb u otro dispositivo).
 
 Por eso, cuando el sync automático falla, avisa con las instrucciones de qué hacer. Dos vías, se
 usan las que estén configuradas:
