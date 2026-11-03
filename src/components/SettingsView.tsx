@@ -2,12 +2,13 @@ import { useState } from "react";
 import type { AnkiMode, Settings } from "../settings";
 import { IDIOMAS, type Idioma, type T } from "../i18n";
 import { SUFIJO_FRASE } from "../anki";
-import { ensureNotetype, health, listDecks, sync } from "../server";
+import { descargaCompleta, ensureNotetype, health, listDecks, ServerError, sync } from "../server";
 import { copiarAlServidor, exportarArchivo, leerArchivo, restaurarCopia, restaurarDelServidor, ultimaCopiaAutomatica, type Restaurado } from "../copia";
 
 interface Props { settings: Settings; setSettings: (s: Settings) => void; t: T }
 
-type Feedback = { ok: boolean; text: string } | null;
+/** `code`: la clave del error del servidor; con «sync_completo» se ofrece la descarga completa. */
+type Feedback = { ok: boolean; text: string; code?: string } | null;
 
 export function SettingsView({ settings, setSettings, t }: Props) {
   const [newDeck, setNewDeck] = useState("");
@@ -35,7 +36,7 @@ export function SettingsView({ settings, setSettings, t }: Props) {
     try {
       setFeedback({ ok: true, text: await action() });
     } catch (e) {
-      setFeedback({ ok: false, text: e instanceof Error ? e.message : String(e) });
+      setFeedback({ ok: false, text: e instanceof Error ? e.message : String(e), code: e instanceof ServerError ? e.code : undefined });
     } finally {
       setBusy(false);
     }
@@ -74,6 +75,13 @@ export function SettingsView({ settings, setSettings, t }: Props) {
     // La media sigue subiendo de fondo: se avisa para que no parezca que falta algo.
     return t("settings.synced", { state: r.required }) + (r.server_message ? ` ${r.server_message}` : "");
   }, t("settings.syncing"));
+
+  // Lo mismo que el botón del aviso de sincronización (SyncBanner): tras reiniciar el servidor ese
+  // aviso no sale hasta el siguiente sync automático, pero aquí el error ya se ha visto.
+  const descargar = () => {
+    if (!confirm(t("sync.confirmDownload"))) return;
+    run(async () => t("sync.downloaded", { recovered: (await descargaCompleta(settings)).recuperadas }), t("sync.downloading"));
+  };
 
   // ---- copia de seguridad ----
   const [ultimaCopia, setUltimaCopia] = useState(ultimaCopiaAutomatica());
@@ -173,6 +181,11 @@ export function SettingsView({ settings, setSettings, t }: Props) {
               <button onClick={sincronizar} disabled={busy}>{t("settings.sync")}</button>
             </div>
             {feedback && zona === "servidor" && <p className={feedback.ok ? "hint" : "error"}>{feedback.text}</p>}
+            {feedback?.code === "sync_completo" && zona === "servidor" && (
+              <div className="button-row">
+                <button className="primary" onClick={descargar} disabled={busy}>{t("sync.download")}</button>
+              </div>
+            )}
             <p className="hint">
               {t("settings.serverHint")}
             </p>

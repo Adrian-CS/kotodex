@@ -196,3 +196,19 @@ test("«AnkiWeb pide sincronización completa»: el aviso ofrece descargar y con
   await expect(page.getByText("Tarjetas recuperadas y subidas: 3")).toBeVisible();
   expect(descargas).toBe(1);
 });
+
+test("Ajustes → Sincronizar con «sync completo» ofrece también «Descargar de AnkiWeb»", async ({ page }) => {
+  await servidorFalso(page);
+  let descargas = 0;
+  await page.route(`${SERVIDOR}/sync`, r => r.fulfill({ status: 409, contentType: "application/json",
+    body: JSON.stringify({ detail: "AnkiWeb pide una sincronización completa (FULL_SYNC) para la colección de este servidor.", code: "sync_completo" }) }));
+  await page.route(`${SERVIDOR}/sync/full-download`, r => { descargas++;
+    return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ recuperadas: 2, ya_estaban: 0, copia: "x", required: "NO_CHANGES" }) }); });
+  page.on("dialog", d => d.accept());
+  await page.goto("/");
+  await page.getByRole("button", { name: "Ajustes", exact: true }).click();
+  await page.getByRole("button", { name: "Sincronizar", exact: true }).click();
+  await page.getByRole("button", { name: "Descargar de AnkiWeb" }).click();
+  await expect(page.getByText("Tarjetas recuperadas y subidas: 2")).toBeVisible();
+  expect(descargas).toBe(1);
+});

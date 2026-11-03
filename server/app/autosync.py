@@ -142,6 +142,11 @@ class AutoSync:
         self.ultimo_codigo = None
         self._escribir_marca(time.time())
 
+    def marcar_error(self, e: ServiceError) -> None:
+        """Un sync hecho a mano que falló: /health lo cuenta igual que si fuera el automático."""
+        self.ultimo_resultado = f"error: {e}"
+        self.ultimo_codigo = e.clave
+
     @property
     def proximo_en_segundos(self) -> float | None:
         candidatos = []

@@ -237,9 +237,14 @@ async def ultima_copia() -> dict:
 @app.post("/sync", dependencies=[Auth])
 async def sync(body: SyncRequest | None = None) -> dict:
     body = body or SyncRequest()
-    salida = await run_in_threadpool(
-        service.sync, wait_media=body.wait_media, media_timeout=body.media_timeout
-    )
+    try:
+        salida = await run_in_threadpool(
+            service.sync, wait_media=body.wait_media, media_timeout=body.media_timeout
+        )
+    except ServiceError as e:
+        # Que el aviso de la PWA (que lee /health) lo sepa ya, sin esperar al sync automático.
+        autosync.marcar_error(e)
+        raise
     autosync.marcar_ok(salida["required"])
     return salida
 

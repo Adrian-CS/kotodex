@@ -346,3 +346,16 @@ def test_descarga_completa_si_no_hace_falta_no_toca_nada(client, monkeypatch):
     r = client.post("/sync/full-download", json={"confirmar": True})
     assert r.status_code == 409
     assert r.json()["code"] == "no_hace_falta_completo"
+
+
+def test_sync_a_mano_fallido_lo_cuenta_health(client, monkeypatch):
+    from anki.sync_pb2 import SyncAuth, SyncCollectionResponse
+
+    from app.main import service
+
+    monkeypatch.setattr(service, "_sync_auth", lambda: SyncAuth(hkey="x"))
+    monkeypatch.setattr(service.col, "sync_collection",
+                        lambda auth, media: _RespuestaSync(SyncCollectionResponse.ChangesRequired.FULL_SYNC))
+    r = client.post("/sync", json={})
+    assert r.status_code == 409 and r.json()["code"] == "sync_completo"
+    assert client.get("/health").json()["autosync"]["ultimo_codigo"] == "sync_completo"
