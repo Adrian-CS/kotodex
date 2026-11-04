@@ -112,7 +112,9 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
 - `src/pendientes.ts` + `components/PendientesBanner.tsx` — cola sin conexión: si `/notes` falla por CONEXIÓN
   (`ServerError.status === 0`), la tarjeta se guarda ya armada en la tabla `pendientes` (Dexie v6, una por palabra) y
   se manda sola al abrir, al volver a la app, con el evento `online` y cada minuto mientras quede alguna. Un error del
-  servidor (no de red) no se encola: reintentarlo no lo arreglaría. Duplicada al enviar = enviada.
+  servidor (no de red) no se encola: reintentarlo no lo arreglaría. Duplicada al enviar = enviada. Si una encolada
+  la rechaza luego el servidor, queda marcada (`error`), las de detrás siguen y no se reintenta sola; el aviso
+  ofrece «Reintentar ahora» (todas) y «Descartar las rechazadas». Guarda `permitirDuplicada` («Añadir igualmente»).
 - `components/SyncBanner.tsx` — banda de aviso si `/health` dice que el último sync automático falló.
   Es el aviso que se ve siempre: el correo y ntfy hay que configurarlos.
 - Prioridad de diccionarios: `Dictionary.order` (flechas en Diccionarios). Decide el orden de los
@@ -213,7 +215,9 @@ fflate (unzip), vite-plugin-pwa. Sin framework CSS: `src/styles.css` con tokens 
   Un 409 de sync completo es de la colección DEL SERVIDOR (el ordenador y el móvil no ven nada): `POST /sync/full-download`
   (botón «Descargar de AnkiWeb» en SyncBanner, por `ultimo_codigo`) guarda las notas con `usn = -1`, hace copia en
   `data/backups`, descarga, las vuelve a añadir (dos pasadas: solo se descartan las que ya trae AnkiWeb) y sincroniza.
-  Nunca subir: la buena es la de AnkiWeb. El registro dice si el cambio de esquema fue local (`col.schema_changed()`).
+  Nunca subir: la buena es la de AnkiWeb. Con FULL_UPLOAD (AnkiWeb vacía) se niega (`ankiweb_vacia`). Antes de
+  descargar deja también `data/backups/sin-subir-*.json`. El registro dice si el cambio de esquema fue local
+  (`col.schema_changed()`).
 - `server/` — la API. Ver `server/README.md`: endpoints, despliegue y las trampas de la colección de Anki.
 - `COMANDOS.md` — chuleta de operación (arrancar/reiniciar el servidor, Tailscale, desplegar, diagnóstico).
 - `src/components/` — SearchView (siempre montado para no perder la búsqueda), EntryCard, DictionariesView, SettingsView.
@@ -272,7 +276,7 @@ test-dicts/ si falta y levanta Vite en el 5199). Sin red: KanjiVG se responde 40
 falso (`page.route`), así que se comprueba lo que la PWA MANDA, no Anki. Lo corre el CI (`ci.yml`) en cada push,
 junto con los tests del servidor; en main, si pasa, publica.
 
-Servidor: `cd server && ./venv/bin/python -m pytest tests -q` (69 casos, colección temporal). Para probarlo
+Servidor: `cd server && ./venv/bin/python -m pytest tests -q` (74 casos, colección temporal). Para probarlo
 junto a la PWA, levantar uvicorn con `KOTODEX_CORS_ORIGINS=http://localhost:5173` y poner esa URL en Ajustes.
 
 ## Gotchas

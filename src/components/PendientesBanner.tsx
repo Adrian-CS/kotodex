@@ -1,4 +1,4 @@
-import { usePendientes } from "../pendientes";
+import { descartarRechazadas, usePendientes } from "../pendientes";
 import type { Settings } from "../settings";
 import type { T } from "../i18n";
 
@@ -8,7 +8,8 @@ interface Props { settings: Settings; t: T }
 export function PendientesBanner({ settings, t }: Props) {
   const { pendientes, reintentar, enviandoAhora } = usePendientes(settings);
   if (!pendientes.length) return null;
-  const error = pendientes.find(p => p.error)?.error;
+  const rechazadas = pendientes.filter(p => p.error);
+  const error = rechazadas[0]?.error;
 
   return (
     <div className="aviso-sync aviso-pendientes" role="status">
@@ -21,6 +22,11 @@ export function PendientesBanner({ settings, t }: Props) {
         <button onClick={reintentar} disabled={enviandoAhora}>
           {enviandoAhora ? t("queue.sending") : t("queue.retry")}
         </button>
+        {rechazadas.length > 0 && (
+          <button className="text" onClick={() => { if (confirm(t("queue.confirmDiscard", { count: rechazadas.length }))) void descartarRechazadas(); }} disabled={enviandoAhora}>
+            {t("queue.discard", { count: rechazadas.length })}
+          </button>
+        )}
       </div>
     </div>
   );

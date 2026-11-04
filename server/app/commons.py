@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from pathlib import Path
 
 import requests
@@ -27,6 +28,14 @@ API = "https://commons.wikimedia.org/w/api.php"
 # Wikimedia pide un User-Agent que identifique al cliente.
 AGENTE = "kotodex/1.0 (diccionario personal; https://github.com/Adrian-CS/kotodex)"
 CATEGORIA = "Lingua_Libre_pronunciation-jpn"
+
+# Caracteres especiales de las expresiones regulares del buscador de Commons (Lucene), que no son
+# los de Python: re.escape no escapa < > @ & ~ # y escapa cosas que Lucene no necesita.
+_ESPECIALES_LUCENE = set('.?+*|{}[]()"\\#@&<>~')
+
+
+def _escapar_lucene(texto: str) -> str:
+    return "".join("\\" + c if c in _ESPECIALES_LUCENE else c for c in texto)
 
 
 def _titulo_valido(titulo: str, termino: str) -> bool:
@@ -44,17 +53,30 @@ def buscar_commons(
     timeout: float,
     api: str = API,
 ) -> Path | None:
-    """La grabación de la palabra, ya en la caché; None si no hay o Commons no responde."""
+    """
+    La grabación de la palabra, ya en la caché; None si no hay o Commons no responde.
+
+    `timeout` es el plazo de TODO (búsqueda, URL y descarga), no de cada petición: con tres
+    peticiones de 10 s cada una, una palabra con Commons lento pasaba de los 45 s que espera la PWA.
+    """
     termino = expression.strip()
     # Solo por la expresión: buscar por la lectura (はし) podría traer la grabación de otra palabra (橋 por 箸).
     if not termino or any(c in termino for c in '/\\"'):
         return None
     sesion = requests.Session()
     sesion.headers.update({"User-Agent": AGENTE})
+    limite = time.monotonic() + timeout
+
+    def queda() -> float:
+        resto = limite - time.monotonic()
+        if resto <= 0:
+            raise requests.Timeout("plazo de Commons agotado")
+        return resto
+
     try:
-        busqueda = sesion.get(api, timeout=timeout, params={
+        busqueda = sesion.get(api, timeout=queda(), params={
             "action": "query", "format": "json", "list": "search", "srnamespace": 6, "srlimit": 10,
-            "srsearch": f'intitle:/-{re.escape(termino)}\\.wav/i incategory:"{CATEGORIA}"',
+            "srsearch": f'intitle:/-{_escapar_lucene(termino)}\\.wav/i incategory:"{CATEGORIA}"',
         })
         busqueda.raise_for_status()
         titulos = [r["title"] for r in busqueda.json().get("query", {}).get("search", [])
@@ -62,7 +84,7 @@ def buscar_commons(
         if not titulos:
             return None
 
-        info = sesion.get(api, timeout=timeout, params={
+        info = sesion.get(api, timeout=queda(), params={
             "action": "query", "format": "json", "prop": "imageinfo", "iiprop": "url",
             "titles": "|".join(titulos[:5]),
         })
@@ -74,7 +96,7 @@ def buscar_commons(
             url = urls.get(titulo)
             if not url:
                 continue
-            fichero = sesion.get(url, timeout=timeout * 2)
+            fichero = sesion.get(url, timeout=queda())
             fichero.raise_for_status()
             tipo = fichero.headers.get("Content-Type", "").split(";")[0].strip().lower()
             sufijo = CONTENT_TYPES.get(tipo, ".wav")

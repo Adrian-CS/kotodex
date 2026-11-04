@@ -115,8 +115,13 @@ export interface Pendiente {
   fields: Record<string, string>;
   deck: string;
   at: number;
-  /** El último error que no fue de conexión (p. ej. falta el tipo de nota): se enseña en el aviso. */
+  /**
+   * El último error que no fue de conexión (p. ej. falta el tipo de nota): se enseña en el aviso.
+   * Una con error no se reintenta sola (no lo arreglaría), solo con «Reintentar ahora».
+   */
   error?: string;
+  /** Se pulsó «Añadir igualmente»: al enviarla, que el servidor no la rechace por duplicada. */
+  permitirDuplicada?: boolean;
 }
 
 class JpDictDB extends Dexie {

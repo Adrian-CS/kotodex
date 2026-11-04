@@ -12,6 +12,7 @@ no pierde notas. Para un backup hay que copiar collection.anki2 *y* collection.a
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
@@ -450,13 +451,22 @@ class AnkiService:
                 raise ServiceError("sync_fallido", 502, error=str(e)) from e
             if out.new_endpoint:
                 auth = self._auth = SyncAuth(hkey=auth.hkey, endpoint=out.new_endpoint)
-            if out.required not in _FULL:
+            if out.required == _CHANGES.FULL_UPLOAD:
+                # AnkiWeb está vacía o reiniciada: descargar dejaría el servidor sin nada. Eso se
+                # decide en el escritorio (que subirá su colección), nunca desde aquí.
+                raise ServiceError("ankiweb_vacia", 409)
+            if out.required not in (_CHANGES.FULL_SYNC, _CHANGES.FULL_DOWNLOAD):
+                # sync_collection ya ha hecho el sync normal: no queda nada pendiente.
                 raise ServiceError("no_hace_falta_completo", 409)
 
             pendientes = self._notas_sin_subir()
             copias = self.settings.collection_path.parent / "backups"
             copias.mkdir(parents=True, exist_ok=True)
             self.col.create_backup(backup_folder=str(copias), force=True, wait_for_completion=True)
+            # Las notas sin subir también en un JSON aparte: entre la descarga y volver a añadirlas
+            # solo viven en memoria, y si algo falla ahí la copia de la colección no es cómoda de usar.
+            (copias / time.strftime("sin-subir-%Y%m%d-%H%M%S.json")).write_text(
+                json.dumps(pendientes, ensure_ascii=False, indent=1), encoding="utf-8")
             log.warning("Descarga completa desde AnkiWeb: %d notas sin subir guardadas; copia en %s.",
                         len(pendientes), copias)
 
@@ -494,7 +504,8 @@ class AnkiService:
             try:
                 self.col.full_upload_or_download(auth=auth, server_usn=None, upload=False)
             except Exception:
-                # Algunas cuentas solo la aceptan con el media usn del servidor (ver first-sync.py).
+                # Segundo intento con el media usn del servidor, como first-sync.py (con él el backend
+                # además arranca la sincronización de media en segundo plano).
                 self.col.full_upload_or_download(auth=auth, server_usn=server_usn, upload=False)
         except Exception as e:
             raise ServiceError("descarga_fallida", 502, error=str(e)) from e
@@ -518,15 +529,24 @@ class AnkiService:
             for nombre, valor in p["campos"].items():
                 if nombre in nota:
                     nota[nombre] = valor
+                elif valor:
+                    log.warning("La nota «%s» pierde el campo «%s»: el tipo de nota de AnkiWeb no lo tiene "
+                                "(está en el JSON de data/backups).", p["campos"].get("Expression", "?"), nombre)
             nota.tags = p["etiquetas"]
             # Una nota que ya está en AnkiWeb (tocada aquí, no nueva) no se repite.
             if nota.fields_check() == NoteFieldsCheckResult.DUPLICATE:
                 ya_estaban += 1
                 continue
             preparadas.append((nota, p["mazo"]))
+        recuperadas = 0
         for nota, mazo in preparadas:
-            self.col.add_note(nota, self.col.decks.id(mazo))
-        return len(preparadas), ya_estaban
+            try:
+                self.col.add_note(nota, self.col.decks.id(mazo))
+                recuperadas += 1
+            except Exception:  # noqa: BLE001 — una nota rara no puede dejar sin recuperar las demás
+                log.exception("No se pudo volver a añadir «%s» (está en el JSON de data/backups).",
+                              nota["Expression"] if "Expression" in nota else "?")
+        return recuperadas, ya_estaban
 
     def _wait_media(self, timeout: float) -> str:
         deadline = time.monotonic() + timeout

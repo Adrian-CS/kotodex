@@ -212,3 +212,34 @@ test("Ajustes → Sincronizar con «sync completo» ofrece también «Descargar 
   await expect(page.getByText("Tarjetas recuperadas y subidas: 2")).toBeVisible();
   expect(descargas).toBe(1);
 });
+
+test("cola: una tarjeta rechazada no bloquea las de detrás y se puede descartar", async ({ page }) => {
+  const recibido = await servidorFalso(page);
+  let caido = true;
+  await page.route(`${SERVIDOR}/notes`, route => {
+    if (caido) return route.abort("internetdisconnected");
+    // 橋 la rechaza el servidor (no es de conexión); 食べる entra.
+    if (route.request().postDataJSON().fields.Expression === "橋") {
+      return route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ detail: "Campos desconocidos", code: "campos_desconocidos" }) });
+    }
+    return route.fallback();
+  });
+  page.on("dialog", d => d.accept());
+  await abrirConDiccionarios(page);
+  for (const q of ["橋", "食べる"]) {
+    await buscar(page, q);
+    await expect(page.locator(".entry-word").first()).toHaveText(q);
+    await page.locator("input[type=search]").blur();
+    await page.getByRole("button", { name: "Añadir a Anki" }).first().click();
+    await expect(page.locator(".added-note").first()).toContainText("se enviará sola");
+  }
+  const aviso = page.locator(".aviso-pendientes");
+  await expect(aviso).toContainText("2 sin enviar");
+
+  caido = false;
+  await aviso.getByRole("button", { name: "Reintentar ahora" }).click();
+  await expect(aviso).toContainText("1 sin enviar");
+  expect(recibido.notas.map(n => n.fields.Expression)).toEqual(["食べる"]);
+  await aviso.getByRole("button", { name: /Descartar las rechazadas \(1\)/ }).click();
+  await expect(aviso).toHaveCount(0);
+});

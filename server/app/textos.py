@@ -133,6 +133,14 @@ MENSAJES: dict[str, dict[str, str]] = {
         "en": "The full download has not been confirmed.",
         "ja": "完全ダウンロードが確認されていません。",
     },
+    "ankiweb_vacia": {
+        "es": "AnkiWeb pide SUBIR la colección (está vacía o se reinició). Descargar dejaría el servidor "
+              "vacío, así que no se hace: sincroniza Anki en el ordenador y elige subir allí.",
+        "en": "AnkiWeb is asking to UPLOAD the collection (it is empty or was reset). Downloading would leave "
+              "the server empty, so it isn't done: sync Anki on your computer and choose upload there.",
+        "ja": "AnkiWeb がコレクションのアップロードを求めています（空かリセット済み）。ダウンロードすると"
+              "サーバーが空になるので行いません。パソコンの Anki で同期し、そちらでアップロードを選んでください。",
+    },
     "no_hace_falta_completo": {
         "es": "AnkiWeb ya no pide sincronización completa: no se ha tocado nada. Sincroniza normal.",
         "en": "AnkiWeb no longer asks for a full sync: nothing was changed. Sync normally.",

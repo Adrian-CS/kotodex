@@ -359,3 +359,50 @@ def test_sync_a_mano_fallido_lo_cuenta_health(client, monkeypatch):
     r = client.post("/sync", json={})
     assert r.status_code == 409 and r.json()["code"] == "sync_completo"
     assert client.get("/health").json()["autosync"]["ultimo_codigo"] == "sync_completo"
+
+
+def test_descarga_completa_nunca_si_ankiweb_pide_subir(client, monkeypatch):
+    # FULL_UPLOAD = AnkiWeb vacía o reiniciada: descargar dejaría el servidor sin nada.
+    from anki.sync_pb2 import SyncAuth, SyncCollectionResponse
+
+    from app.main import service
+
+    monkeypatch.setattr(service, "_sync_auth", lambda: SyncAuth(hkey="x"))
+    monkeypatch.setattr(service.col, "sync_collection",
+                        lambda auth, media: _RespuestaSync(SyncCollectionResponse.ChangesRequired.FULL_UPLOAD))
+    monkeypatch.setattr(service, "_descarga_completa", lambda *a: (_ for _ in ()).throw(AssertionError("no")))
+    r = client.post("/sync/full-download", json={"confirmar": True})
+    assert r.status_code == 409 and r.json()["code"] == "ankiweb_vacia"
+    assert client.get("/health").json()["autosync"]["ultimo_codigo"] == "ankiweb_vacia"
+
+
+def test_si_ya_no_hacia_falta_el_aviso_se_va(client, monkeypatch):
+    from anki.sync_pb2 import SyncAuth, SyncCollectionResponse
+
+    from app.main import autosync, service
+
+    autosync.ultimo_codigo = "sync_completo"
+    monkeypatch.setattr(service, "_sync_auth", lambda: SyncAuth(hkey="x"))
+    monkeypatch.setattr(service.col, "sync_collection",
+                        lambda auth, media: _RespuestaSync(SyncCollectionResponse.ChangesRequired.NO_CHANGES))
+    assert client.post("/sync/full-download", json={"confirmar": True}).status_code == 409
+    assert client.get("/health").json()["autosync"]["ultimo_codigo"] is None
+
+
+def test_descarga_completa_guarda_un_json_con_lo_no_subido(client, monkeypatch):
+    import json as _json
+
+    from anki.sync_pb2 import SyncAuth, SyncCollectionResponse
+
+    from app.main import service, settings
+
+    client.post("/notetype/ensure", json={})
+    client.post("/notes", json={"fields": {**WORD, "Expression": "雪", "Reading": "ゆき"}, "deck": "日本語"})
+    monkeypatch.setattr(service, "_sync_auth", lambda: SyncAuth(hkey="x"))
+    respuestas = iter([SyncCollectionResponse.ChangesRequired.FULL_DOWNLOAD])
+    monkeypatch.setattr(service.col, "sync_collection",
+                        lambda auth, media: _RespuestaSync(next(respuestas, SyncCollectionResponse.ChangesRequired.NO_CHANGES)))
+    monkeypatch.setattr(service, "_descarga_completa", lambda *a: service.col.remove_notes(service.col.find_notes("")))
+    assert client.post("/sync/full-download", json={"confirmar": True}).status_code == 200
+    copias = sorted((settings.collection_path.parent / "backups").glob("sin-subir-*.json"))
+    assert copias and any(n["campos"]["Expression"] == "雪" for n in _json.loads(copias[-1].read_text(encoding="utf-8")))

@@ -43,8 +43,12 @@ export class AcumuladorKanji {
 
 /** Guarda el índice de un diccionario y lo marca como indexado. */
 export async function guardarIndice(dict: number, acumulador: AcumuladorKanji): Promise<void> {
-  await db.kanjiPalabras.bulkPut(acumulador.filas(dict));
-  await db.dictionaries.update(dict, { kanjiIndexado: true });
+  // Si se borró el diccionario mientras se construía, no se dejan filas huérfanas.
+  await db.transaction("rw", db.dictionaries, db.kanjiPalabras, async () => {
+    if (!(await db.dictionaries.get(dict))) return;
+    await db.kanjiPalabras.bulkPut(acumulador.filas(dict));
+    await db.dictionaries.update(dict, { kanjiIndexado: true });
+  });
 }
 
 /** Construye el índice de un diccionario ya importado, leyendo sus términos por lotes. */

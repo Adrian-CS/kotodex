@@ -262,6 +262,15 @@ async def descarga_completa(body: DescargaRequest) -> dict:
     """
     if not body.confirmar:
         raise ServiceError("falta_confirmar")
-    salida = await run_in_threadpool(service.descargar_conservando)
+    try:
+        salida = await run_in_threadpool(service.descargar_conservando)
+    except ServiceError as e:
+        # «No hacía falta» = el sync normal ya se hizo al comprobar: el aviso debe irse. Cualquier
+        # otro error queda en /health, como en /sync.
+        if e.clave == "no_hace_falta_completo":
+            autosync.marcar_ok("NORMAL_SYNC")
+        else:
+            autosync.marcar_error(e)
+        raise
     autosync.marcar_ok(salida["required"])
     return salida

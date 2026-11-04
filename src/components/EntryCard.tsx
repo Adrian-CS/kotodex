@@ -77,7 +77,7 @@ export const EntryCard = memo(function EntryCard({ entry, settings, setSettings,
     } catch (e) {
       // Sin conexión con el servidor: se guarda y se manda sola cuando vuelva (src/pendientes.ts).
       if (esFalloDeConexion(e)) {
-        await encolar(key, entry.expression, fields, deck);
+        await encolar(key, entry.expression, fields, deck, allowDuplicate);
         setStatus({ kind: "done", text: t("entry.queued") });
         return;
       }

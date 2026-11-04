@@ -76,3 +76,11 @@ def test_titulo_valido():
     assert _titulo_valido("File:LL-Q5287 (jpn)-Un-nombre-con-guiones-猫.wav", "猫")
     assert not _titulo_valido("File:LL-Q5287 (jpn)-Alguien-子猫.wav", "猫")
     assert not _titulo_valido("File:LL-Q150 (fra)-Alguien-猫.wav", "猫")
+
+
+def test_escapa_para_el_buscador_de_commons():
+    from app.commons import _escapar_lucene
+
+    assert _escapar_lucene("猫") == "猫"
+    assert _escapar_lucene("a<b>@c") == "a\\<b\\>\\@c"
+    assert _escapar_lucene("x.y") == "x\\.y"
