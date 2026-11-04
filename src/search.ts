@@ -614,7 +614,7 @@ async function armar(
     const salida: Grupo[] = [];
     for (const g of lista) {
       const texto = segmentosGlosario(g.terms[0].glossary).join(" ");
-      const firma = `${g.prioridad} ${texto.replace(/[가-힯]+/g, "").trim().slice(0, 160)}`;
+      const firma = `${g.prioridad}\u0000${texto.replace(/[가-힯]+/g, "").trim().slice(0, 160)}`;
       const previo = mejorPorFirma.get(firma);
       if (!previo) {
         mejorPorFirma.set(firma, g);

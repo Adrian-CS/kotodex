@@ -126,18 +126,17 @@ dispositivo, y a partir de ahí cada una sincroniza incrementalmente.
 
 **Descargar de AnkiWeb** (`deploy/first-sync.py`), si no tienes Anki de escritorio a mano.
 
-
-La colección del servidor nace vacía y la tuya está en AnkiWeb, así que la primera vez hay que
-traérsela entera. `POST /sync` no lo hace a propósito: una sincronización completa pisa una de las
-dos colecciones y eso no debería dispararlo un endpoint. Para eso está `deploy/first-sync.py`.
+Para el montaje inicial existe `deploy/first-sync.py`, que descarga la colección entera con el
+servidor parado. Más adelante, si AnkiWeb vuelve a pedir una sincronización completa, no hace falta:
+el botón «Descargar de AnkiWeb» de la PWA (`POST /sync/full-download`) hace lo mismo con el servidor
+en marcha y conserva las tarjetas sin subir. Un `POST /sync` normal nunca hace una completa.
 
 Antes: rellena `ANKIWEB_USERNAME` y `ANKIWEB_PASSWORD` en `.env`, sincroniza tu Anki de escritorio
 para que AnkiWeb tenga lo último, y **para el servidor** (Anki bloquea la colección en exclusiva).
 
 ```powershell
-.\deploy\windows
-estart-kotodex.ps1   # (o parar el servidor a mano)
-.env\Scripts\python.exe deployirst-sync.py
+# Parar el servidor (ver COMANDOS.md, «Parar»), y luego:
+.\venv\Scripts\python.exe deploy\first-sync.py
 ```
 
 Pide confirmación escribiendo `DESCARGAR`. La media (en una colección grande, cientos de miles de

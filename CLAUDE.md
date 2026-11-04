@@ -18,7 +18,7 @@ PWA (este repo, Cloudflare Pages + Cloudflare Access)
        "ankimobile" → URL scheme de AnkiMobile (sin audio, sale de la app)
        "servidor"   → POST a servidor propio (con audio, sin salir de la app)
 Servidor (server/, HECHO)
-  FastAPI + librería Python `anki`, corriendo en el portátil de Adrian y expuesto con Tailscale Funnel.
+  FastAPI + librería Python `anki`, corriendo en el portátil de Adrian y expuesto con Tailscale `serve` (solo sus dispositivos).
   Mismo código en Linux (systemd) si algún día pasa a VM, VPS o mini PC.
   ├─ Colección de Anki PERSISTENTE en disco (para sync incremental, no full sync)
   ├─ Crea la nota, adjunta el audio como media ([sound:x.mp3]), sincroniza con AnkiWeb
@@ -238,15 +238,15 @@ elige el tipo según venga Sentence o no, y lo crea solo si falta. Ajuste `guard
 
 ## Idiomas de la interfaz
 `src/i18n.ts` — español, inglés y japonés. El ajuste vive en `Settings.idioma` (`"auto"` = el del
-sistema). Tres decisiones:
+sistema). Cuatro decisiones:
 - Las razones del deinflector japonés se guardan en la tabla con la **clave original de Yomitan**
   (`past`, `-te`) y se traducen al enseñarlas. Las 450 coreanas NO se traducen: ya son terminología
   gramatical coreana y traducirlas las haría menos útiles.
-- Los errores del servidor llegan traducidos, y con `code` (la clave sin traducir): la PWA decide por ella, nunca
-  por el texto (antes «Añadir igualmente» solo salía con la interfaz en español).
 - Los errores del servidor llegan traducidos: `ServiceError` lleva una CLAVE y sus parámetros
   (`server/app/textos.py`), y se traduce al responder con la cabecera `Accept-Language` que manda
-  la PWA. Sin eso tendrías la interfaz en japonés y los errores en castellano.
+  la PWA. Sin eso tendrías la interfaz en japonés y los errores en castellano. La respuesta lleva
+  también `code` (la clave sin traducir) y la PWA decide por ella, nunca por el texto (antes «Añadir
+  igualmente» solo salía con la interfaz en español).
 - `main.tsx` comprueba si hay versión nueva cada hora y al volver a primer plano. Sin eso, una PWA
   en la pantalla de inicio de iOS puede pasar días sin enterarse de un despliegue.
 
@@ -262,7 +262,7 @@ npm install && python3 scripts/make-test-dicts.py && npm run dev
 ```
 Importar los 6 zips de `test-dicts/` (sin `freq2.zip`), buscar はし (4 entradas: 橋, 端, 箸 por frecuencia y 嘴, sin ella,
 al final; con `freq2.zip`, la reserva, 嘴 pasa delante de 箸) y 今日 (dos pitches [1],[0], con ES).
-Tocar 食 en 食べる abre su ficha (ショク・ジキ, た.べる, 9 trazos) con 食べる en «Palabras que empiezan por 食».
+Tocar 食 en 食べる abre su ficha (ショク・ジキ, た.べる, 9 trazos) con 和食 y 食べる (por frecuencia) en «Palabras con 食».
 Conjugaciones: 食べた, 食べさせられた, たべている, 読まなかった, 高くない, 勉強しました → todas deben caer en su forma de
 diccionario con la razón debajo del término. `npx tsc -p .` y `npm test` deben salir limpios.
 Para verificar UI móvil: Playwright a 390×844.
